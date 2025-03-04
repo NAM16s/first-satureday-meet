@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { MONTH_NAMES } from '@/utils/constants';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
+import { databaseService } from '@/services/databaseService';
 
 const Dashboard = () => {
   const dashboardRef = useRef<HTMLDivElement>(null);
@@ -14,30 +15,36 @@ const Dashboard = () => {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [isEditingCarryover, setIsEditingCarryover] = useState(false);
   
-  // 이 부분은 실제 데이터로 연결해야 함
-  const [carryoverAmount, setCarryoverAmount] = useState(1500000);
-  const [currentBalance, setCurrentBalance] = useState(2750000);
-  
-  const [recentIncomes, setRecentIncomes] = useState([
-    { id: '1', date: '2023-12-15', name: '김성우', type: '회비', amount: 50000 },
-    { id: '2', date: '2023-12-14', name: '유영우', type: '회비', amount: 50000 },
-    { id: '3', date: '2023-12-10', name: '이정규', type: '회비', amount: 50000 },
-  ]);
+  // State for real data
+  const [carryoverAmount, setCarryoverAmount] = useState(0);
+  const [currentBalance, setCurrentBalance] = useState(0);
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [recentIncomes, setRecentIncomes] = useState<any[]>([]);
+  const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
 
-  const [recentExpenses, setRecentExpenses] = useState([
-    { id: '1', date: '2023-12-20', name: '회식비', type: '식대', amount: 350000 },
-    { id: '2', date: '2023-12-05', name: '김태우 결혼축의금', type: '경조사비', amount: 200000 },
-  ]);
-
-  const monthlyData = MONTH_NAMES.map((month, index) => ({
-    month: month,
-    income: Math.floor(Math.random() * 500000) + 100000, // 임시 데이터
-    expense: Math.floor(Math.random() * 300000) + 50000, // 임시 데이터
-  }));
-
+  // Load data when year changes
   useEffect(() => {
-    // 여기서 FinanceContext 데이터를 가져와서 최신 5개의 수입/지출 내역을 가져와야 함
-    // 예시 데이터만 표시
+    // Get carryover amount
+    const savedCarryover = databaseService.getCarryoverAmount(selectedYear);
+    setCarryoverAmount(savedCarryover);
+    
+    // Calculate current balance
+    const balance = databaseService.calculateCurrentBalance(selectedYear);
+    setCurrentBalance(balance);
+    
+    // Get monthly data
+    const monthly = databaseService.getMonthlyFinanceData(selectedYear);
+    setMonthlyData(monthly);
+    
+    // Get recent incomes
+    const allIncomes = databaseService.getIncomes();
+    const filteredIncomes = allIncomes.slice(0, 5); // Get latest 5 incomes
+    setRecentIncomes(filteredIncomes);
+    
+    // Get recent expenses
+    const allExpenses = databaseService.getExpenses();
+    const filteredExpenses = allExpenses.slice(0, 5); // Get latest 5 expenses
+    setRecentExpenses(filteredExpenses);
   }, [selectedYear]);
 
   const handlePreviousYear = () => {
@@ -54,9 +61,13 @@ const Dashboard = () => {
   };
 
   const handleCarryoverSave = () => {
-    // 실제로는 FinanceContext에 저장해야 함
+    databaseService.saveCarryoverAmount(selectedYear, carryoverAmount);
     setIsEditingCarryover(false);
     toast.success('이월 금액이 저장되었습니다.');
+    
+    // Update current balance after saving carryover
+    const balance = databaseService.calculateCurrentBalance(selectedYear);
+    setCurrentBalance(balance);
   };
 
   return (
@@ -133,7 +144,7 @@ const Dashboard = () => {
                 <tbody>
                   {monthlyData.map((data, index) => (
                     <tr key={index} className="border-b">
-                      <td className="border p-2">{data.month}</td>
+                      <td className="border p-2">{MONTH_NAMES[data.month - 1]}</td>
                       <td className="border p-2 text-right text-green-600">{data.income.toLocaleString()}원</td>
                       <td className="border p-2 text-right text-red-600">{data.expense.toLocaleString()}원</td>
                       <td className="border p-2 text-right">{(data.income - data.expense).toLocaleString()}원</td>
@@ -176,14 +187,22 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentIncomes.map(income => (
-                      <tr key={income.id} className="border-b">
-                        <td className="p-2">{income.date}</td>
-                        <td className="p-2">{income.name}</td>
-                        <td className="p-2">{income.type}</td>
-                        <td className="p-2 text-right">{income.amount.toLocaleString()}원</td>
+                    {recentIncomes.length > 0 ? (
+                      recentIncomes.map(income => (
+                        <tr key={income.id} className="border-b">
+                          <td className="p-2">{income.date}</td>
+                          <td className="p-2">{income.name}</td>
+                          <td className="p-2">{income.type}</td>
+                          <td className="p-2 text-right">{income.amount.toLocaleString()}원</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                          수입 내역이 없습니다.
+                        </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -206,14 +225,22 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentExpenses.map(expense => (
-                      <tr key={expense.id} className="border-b">
-                        <td className="p-2">{expense.date}</td>
-                        <td className="p-2">{expense.name}</td>
-                        <td className="p-2">{expense.type}</td>
-                        <td className="p-2 text-right">{expense.amount.toLocaleString()}원</td>
+                    {recentExpenses.length > 0 ? (
+                      recentExpenses.map(expense => (
+                        <tr key={expense.id} className="border-b">
+                          <td className="p-2">{expense.date}</td>
+                          <td className="p-2">{expense.name}</td>
+                          <td className="p-2">{expense.type}</td>
+                          <td className="p-2 text-right">{expense.amount.toLocaleString()}원</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                          지출 내역이 없습니다.
+                        </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -131,6 +131,82 @@ const saveEvents = (events: any[]) => {
   setData(STORAGE_KEYS.EVENTS, events);
 };
 
+// Finance settings
+const getSettings = () => {
+  return getData(STORAGE_KEYS.SETTINGS, {
+    carryoverAmounts: {}
+  });
+};
+
+const saveSettings = (settings: any) => {
+  setData(STORAGE_KEYS.SETTINGS, settings);
+};
+
+const getCarryoverAmount = (year: number) => {
+  const settings = getSettings();
+  return settings.carryoverAmounts[year] || 0;
+};
+
+const saveCarryoverAmount = (year: number, amount: number) => {
+  const settings = getSettings();
+  settings.carryoverAmounts[year] = amount;
+  saveSettings(settings);
+};
+
+// Calculate current balance based on incomes, expenses and carryover
+const calculateCurrentBalance = (year: number) => {
+  const carryover = getCarryoverAmount(year);
+  
+  const incomes = getIncomes().filter(income => {
+    const incomeYear = new Date(income.date).getFullYear();
+    return incomeYear === year;
+  });
+  
+  const expenses = getExpenses().filter(expense => {
+    const expenseYear = new Date(expense.date).getFullYear();
+    return expenseYear === year;
+  });
+  
+  const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
+  const totalExpense = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  
+  return carryover + totalIncome - totalExpense;
+};
+
+// Get monthly finance data
+const getMonthlyFinanceData = (year: number) => {
+  const incomes = getIncomes().filter(income => {
+    const incomeYear = new Date(income.date).getFullYear();
+    return incomeYear === year;
+  });
+  
+  const expenses = getExpenses().filter(expense => {
+    const expenseYear = new Date(expense.date).getFullYear();
+    return expenseYear === year;
+  });
+  
+  // Initialize monthly data
+  const monthlyData = Array.from({ length: 12 }, (_, i) => ({
+    month: i + 1,
+    income: 0,
+    expense: 0
+  }));
+  
+  // Aggregate incomes by month
+  incomes.forEach(income => {
+    const month = new Date(income.date).getMonth();
+    monthlyData[month].income += income.amount;
+  });
+  
+  // Aggregate expenses by month
+  expenses.forEach(expense => {
+    const month = new Date(expense.date).getMonth();
+    monthlyData[month].expense += expense.amount;
+  });
+  
+  return monthlyData;
+};
+
 // Backup
 const createBackup = () => {
   const backup = {
@@ -138,6 +214,7 @@ const createBackup = () => {
     incomes: getIncomes(),
     expenses: getExpenses(),
     events: getEvents(),
+    settings: getSettings(),
     timestamp: new Date().toISOString()
   };
   
@@ -172,6 +249,7 @@ const restoreBackup = (backupId: string) => {
     if (backup.data.incomes) saveIncomes(backup.data.incomes);
     if (backup.data.expenses) saveExpenses(backup.data.expenses);
     if (backup.data.events) saveEvents(backup.data.events);
+    if (backup.data.settings) saveSettings(backup.data.settings);
     return true;
   }
   
@@ -213,6 +291,14 @@ export const databaseService = {
   // Events
   getEvents,
   saveEvents,
+  
+  // Finance settings
+  getSettings,
+  saveSettings,
+  getCarryoverAmount,
+  saveCarryoverAmount,
+  calculateCurrentBalance,
+  getMonthlyFinanceData,
   
   // Backup
   createBackup,

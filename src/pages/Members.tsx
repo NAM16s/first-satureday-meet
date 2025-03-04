@@ -7,99 +7,103 @@ import { Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MONTH_NAMES } from '@/utils/constants';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
+import { databaseService } from '@/services/databaseService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 const Members = () => {
   const membersRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  // 임시 회원 데이터 - 한글 이름 기준 오름차순 정렬
-  const [members, setMembers] = useState([
-    { id: 'bwkang', name: '강병우' },
-    { id: 'swkim', name: '김성우' },
-    { id: 'twkim', name: '김태우' },
-    { id: 'wjkim', name: '김원중' },
-    { id: 'sgmoon', name: '문석규' },
-    { id: 'wsnam', name: '남원식' },
-    { id: 'hysong', name: '송호영' },
-    { id: 'bsyoo', name: '유봉상' },
-    { id: 'ywyoo', name: '유영우' },
-    { id: 'jglee', name: '이정규' },
-    { id: 'pylim', name: '임평열' },
-  ].sort((a, b) => a.name.localeCompare(b.name, 'ko')));
+  // Member data from database
+  const [members, setMembers] = useState(() => databaseService.getMembers());
 
-  // 회비 납부 상태 데이터
-  const [duesStatus, setDuesStatus] = useState(
-    members.map(member => ({
-      userId: member.id,
-      year: selectedYear,
-      monthlyDues: Array.from({ length: 12 }, (_, i) => ({
-        month: i + 1,
-        paid: Math.random() > 0.3,
-        amount: 50000
-      })),
-      unpaidAmount: Math.floor(Math.random() * 3) * 50000
-    }))
-  );
+  // Dues data from database
+  const [duesStatus, setDuesStatus] = useState<any[]>([]);
 
-  // 경조사비 지급 내역
-  const [specialEvents, setSpecialEvents] = useState([
-    { id: '1', date: '2023-12-05', memberId: 'twkim', name: '김태우', content: '결혼축의금', amount: 200000 },
-    { id: '2', date: '2023-09-15', memberId: 'bsyoo', name: '유봉상', content: '부친상', amount: 100000 },
-  ]);
+  // Special events (expenses linked to members)
+  const [specialEvents, setSpecialEvents] = useState<any[]>([]);
 
-  // 수입 내역 데이터 (다른 페이지와 공유될 데이터)
-  const [incomes, setIncomes] = useState(() => {
-    const savedIncomes = localStorage.getItem('moim_incomes');
-    return savedIncomes ? JSON.parse(savedIncomes) : [];
-  });
+  // State for dues dialog
+  const [duesDialogOpen, setDuesDialogOpen] = useState(false);
+  const [activeDuesData, setActiveDuesData] = useState<{
+    userId: string;
+    memberName: string;
+    month: number;
+    amount: number;
+  } | null>(null);
 
-  // 년도가 변경될 때마다 해당 년도의 회비 납부 상태 데이터 로드
+  // Load dues and expenses when year changes
   useEffect(() => {
-    const savedDuesStatus = localStorage.getItem(`moim_dues_${selectedYear}`);
-    if (savedDuesStatus) {
-      setDuesStatus(JSON.parse(savedDuesStatus));
+    // Load dues data for the selected year
+    const savedDuesStatus = databaseService.getDues(selectedYear);
+    if (savedDuesStatus && savedDuesStatus.length > 0) {
+      setDuesStatus(savedDuesStatus);
     } else {
-      // 새로운 년도의 데이터 생성
-      setDuesStatus(
-        members.map(member => ({
-          userId: member.id,
-          year: selectedYear,
-          monthlyDues: Array.from({ length: 12 }, (_, i) => ({
-            month: i + 1,
-            paid: false,
-            amount: 50000
-          })),
-          unpaidAmount: 0
-        }))
-      );
+      // Initialize new dues data for the year
+      const newDuesStatus = members.map(member => ({
+        userId: member.id,
+        year: selectedYear,
+        monthlyDues: Array.from({ length: 12 }, (_, i) => ({
+          month: i + 1,
+          paid: false,
+          amount: 50000
+        })),
+        unpaidAmount: 0
+      }));
+      setDuesStatus(newDuesStatus);
+      databaseService.saveDues(selectedYear, newDuesStatus);
     }
+
+    // Get member-related expenses (경조사비)
+    const allExpenses = databaseService.getExpenses();
+    const memberEvents = allExpenses.filter(expense => 
+      expense.type === '경조사비' && 
+      new Date(expense.date).getFullYear() === selectedYear
+    );
+    setSpecialEvents(memberEvents);
   }, [selectedYear, members]);
 
-  // duesStatus 변경시 localStorage에 저장
+  // Save dues data when it changes
   useEffect(() => {
-    localStorage.setItem(`moim_dues_${selectedYear}`, JSON.stringify(duesStatus));
+    if (duesStatus.length > 0) {
+      databaseService.saveDues(selectedYear, duesStatus);
+    }
   }, [duesStatus, selectedYear]);
-
-  // incomes 변경시 localStorage에 저장
-  useEffect(() => {
-    localStorage.setItem('moim_incomes', JSON.stringify(incomes));
-  }, [incomes]);
 
   const handleExportImage = () => {
     exportAsImage(membersRef.current!.id, `회원관리_${selectedYear}`);
     toast.success('이미지가 다운로드되었습니다.');
   };
 
-  const handleDuesChange = (userId: string, month: number, amount: number) => {
-    // 해당 월에 이미 납부한 회비가 있는지 확인
+  const handleDuesClick = (userId: string, month: number) => {
+    const member = members.find(m => m.id === userId);
     const userDues = duesStatus.find(dues => dues.userId === userId);
     const monthDue = userDues?.monthlyDues.find(due => due.month === month);
+    
+    setActiveDuesData({
+      userId,
+      memberName: member?.name || '',
+      month,
+      amount: monthDue?.paid ? monthDue.amount : 0
+    });
+    
+    setDuesDialogOpen(true);
+  };
+
+  const handleDuesSave = () => {
+    if (!activeDuesData) return;
+    
+    const { userId, month, amount } = activeDuesData;
     const isPaid = amount > 0;
+    
+    // Find current dues status
+    const userDues = duesStatus.find(dues => dues.userId === userId);
+    const monthDue = userDues?.monthlyDues.find(due => due.month === month);
     const previouslyPaid = monthDue?.paid || false;
     
-    // 회비 납부 상태 업데이트
+    // Update dues status
     setDuesStatus(prev => 
       prev.map(user => 
         user.userId === userId 
@@ -115,14 +119,15 @@ const Members = () => {
       )
     );
 
-    // 수입내역에 회비 납부 추가 (금액이 0보다 크고, 이전에 납부하지 않았을 경우)
+    // Handle income updates
+    const member = members.find(m => m.id === userId);
+    
     if (isPaid && !previouslyPaid) {
-      const member = members.find(m => m.id === userId);
+      // Add new income entry
       const date = new Date();
-      date.setFullYear(selectedYear, month - 1, 15); // 해당 월의 중간일로 설정
+      date.setFullYear(selectedYear, month - 1, 15); // Default to middle of month
       
       const newIncome = {
-        id: uuidv4(),
         date: date.toISOString().split('T')[0],
         name: member?.name || '',
         type: '회비',
@@ -133,37 +138,42 @@ const Members = () => {
         userId: userId
       };
 
-      setIncomes(prev => [newIncome, ...prev]);
+      databaseService.addIncome(newIncome);
       toast.success(`${month}월 회비가 수입내역에 추가되었습니다.`);
-    }
-    // 이미 납부한 회비를 취소할 경우 (금액이 0이고, 이전에 납부했을 경우)
+    } 
     else if (!isPaid && previouslyPaid) {
-      // 해당 회비 납부에 대한 수입내역 제거
-      setIncomes(prev => 
-        prev.filter(income => 
-          !(income.type === '회비' && 
-            income.year === selectedYear && 
-            income.month === month && 
-            income.userId === userId)
-        )
+      // Remove income entry
+      const incomes = databaseService.getIncomes();
+      const duesIncome = incomes.find(income => 
+        income.type === '회비' && 
+        income.year === selectedYear && 
+        income.month === month && 
+        income.userId === userId
       );
-      toast.info(`${month}월 회비 납부가 취소되었습니다.`);
-    }
-    // 금액만 변경된 경우 (이미 납부한 상태에서 금액만 수정)
+      
+      if (duesIncome) {
+        databaseService.deleteIncome(duesIncome.id);
+        toast.info(`${month}월 회비 납부가 취소되었습니다.`);
+      }
+    } 
     else if (isPaid && previouslyPaid && amount !== monthDue?.amount) {
-      // 해당 회비 납부에 대한 수입내역 업데이트
-      setIncomes(prev => 
-        prev.map(income => 
-          (income.type === '회비' && 
-            income.year === selectedYear && 
-            income.month === month && 
-            income.userId === userId)
-            ? { ...income, amount: amount }
-            : income
-        )
+      // Update income amount
+      const incomes = databaseService.getIncomes();
+      const duesIncome = incomes.find(income => 
+        income.type === '회비' && 
+        income.year === selectedYear && 
+        income.month === month && 
+        income.userId === userId
       );
-      toast.success(`${month}월 회비 금액이 수정되었습니다.`);
+      
+      if (duesIncome) {
+        databaseService.updateIncome(duesIncome.id, { amount });
+        toast.success(`${month}월 회비 금액이 수정되었습니다.`);
+      }
     }
+    
+    setDuesDialogOpen(false);
+    setActiveDuesData(null);
   };
 
   const handleUnpaidChange = (userId: string, value: number) => {
@@ -195,20 +205,21 @@ const Members = () => {
         </Button>
       </div>
 
-      <div className="flex justify-center items-center space-x-4 mb-6">
-        <Button variant="outline" size="sm" onClick={handlePreviousYear}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h3 className="text-xl font-semibold">{selectedYear}년</h3>
-        <Button variant="outline" size="sm" onClick={handleNextYear}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
       <div id="members-content" ref={membersRef} className="space-y-6">
         <Card>
-          <CardHeader>
-            <CardTitle>회원 회비 납부 현황 ({selectedYear}년)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <CardTitle>회원 회비 납부 현황</CardTitle>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={handlePreviousYear}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-lg">{selectedYear}년</span>
+                <Button variant="outline" size="sm" onClick={handleNextYear}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -233,14 +244,14 @@ const Members = () => {
                           const monthDue = userDues?.monthlyDues.find(due => due.month === month);
                           return (
                             <td key={index} className="border p-2 text-center">
-                              <Input 
-                                type="number"
-                                value={monthDue?.paid ? monthDue.amount : 0}
-                                onChange={(e) => handleDuesChange(member.id, month, Number(e.target.value))}
-                                className="w-24 text-right mx-auto"
-                                step={1000}
-                                min={0}
-                              />
+                              <Button 
+                                variant={monthDue?.paid ? "default" : "outline"}
+                                size="sm"
+                                className={`w-24 ${monthDue?.paid ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                                onClick={() => handleDuesClick(member.id, month)}
+                              >
+                                {monthDue?.paid ? `${monthDue.amount.toLocaleString()}원` : '-'}
+                              </Button>
                             </td>
                           );
                         })}
@@ -279,20 +290,60 @@ const Members = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {specialEvents.map(event => (
-                    <tr key={event.id} className="border-b">
-                      <td className="p-2">{event.date}</td>
-                      <td className="p-2">{event.name}</td>
-                      <td className="p-2">{event.content}</td>
-                      <td className="p-2 text-right">{event.amount.toLocaleString()}원</td>
+                  {specialEvents.length > 0 ? (
+                    specialEvents.map(event => (
+                      <tr key={event.id} className="border-b">
+                        <td className="p-2">{event.date}</td>
+                        <td className="p-2">{event.name}</td>
+                        <td className="p-2">{event.description}</td>
+                        <td className="p-2 text-right">{event.amount.toLocaleString()}원</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                        {selectedYear}년도의 경조사비 지급 내역이 없습니다.
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Dues Input Dialog */}
+      <Dialog open={duesDialogOpen} onOpenChange={setDuesDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>
+              {activeDuesData ? `${activeDuesData.memberName} - ${activeDuesData.month}월 회비` : '회비 입력'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">회비 금액</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={activeDuesData?.amount || 0}
+                onChange={(e) => setActiveDuesData(prev => 
+                  prev ? { ...prev, amount: Number(e.target.value) } : null
+                )}
+                min={0}
+                step={1000}
+                className="text-right"
+              />
+              <p className="text-sm text-muted-foreground">0원으로 입력 시 미납 처리됩니다.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDuesDialogOpen(false)}>취소</Button>
+            <Button onClick={handleDuesSave}>저장</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

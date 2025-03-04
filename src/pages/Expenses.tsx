@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
+import { databaseService } from '@/services/databaseService';
 
 const Expenses = () => {
   const expensesRef = useRef<HTMLDivElement>(null);
@@ -25,17 +25,20 @@ const Expenses = () => {
     description: ''
   });
 
-  // 임시 지출 데이터
-  const [expenses, setExpenses] = useState([
-    { id: '1', date: '2023-12-20', name: '회식비', type: '식대', amount: 350000, description: '송년회 회식', year: 2023, month: 12 },
-    { id: '2', date: '2023-12-05', name: '김태우', type: '경조사비', amount: 200000, description: '결혼축의금', year: 2023, month: 12 },
-    { id: '3', date: '2023-11-15', name: '단체활동', type: '기타', amount: 150000, description: '볼링장 이용료', year: 2023, month: 11 },
-    { id: '4', date: '2023-10-10', name: '회식비', type: '식대', amount: 280000, description: '정기모임 식대', year: 2023, month: 10 },
-    { id: '5', date: '2023-09-15', name: '유봉상', type: '경조사비', amount: 100000, description: '부친상', year: 2023, month: 9 },
-    { id: '6', date: '2024-01-10', name: '회식비', type: '식대', amount: 300000, description: '신년회 회식', year: 2024, month: 1 },
-  ]);
+  // Expenses from database
+  const [expenses, setExpenses] = useState<any[]>([]);
 
-  // 선택한 연도의 지출만 필터링
+  // Load expenses when component mounts
+  useEffect(() => {
+    loadExpenses();
+  }, [selectedYear]);
+
+  const loadExpenses = () => {
+    const allExpenses = databaseService.getExpenses();
+    setExpenses(allExpenses);
+  };
+
+  // Filtered expenses for the selected year
   const filteredExpenses = expenses.filter(expense => {
     const year = new Date(expense.date).getFullYear();
     return year === selectedYear;
@@ -71,8 +74,7 @@ const Expenses = () => {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     
-    const newExpenseItem = {
-      id: uuidv4(),
+    const newExpenseItem = databaseService.addExpense({
       date: newExpense.date,
       name: newExpense.name,
       type: newExpense.type,
@@ -80,7 +82,7 @@ const Expenses = () => {
       description: newExpense.description,
       year,
       month
-    };
+    });
 
     setExpenses(prev => [newExpenseItem, ...prev]);
     setNewExpenseOpen(false);
