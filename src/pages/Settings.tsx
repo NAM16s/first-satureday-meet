@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,8 +28,18 @@ const Settings = () => {
   });
 
   const [backups, setBackups] = useState([
-    { id: '1', date: '2023-12-25 14:30:00', name: '백업_20231225_143000' },
-    { id: '2', date: '2023-12-20 09:15:22', name: '백업_20231220_091522' },
+    { 
+      id: '1', 
+      date: '2023-12-25 14:30:00', 
+      name: '백업_20231225_143000',
+      data: { users: [] } // Add data property with empty users array
+    },
+    { 
+      id: '2', 
+      date: '2023-12-20 09:15:22', 
+      name: '백업_20231220_091522',
+      data: { users: [] } // Add data property with empty users array
+    },
   ]);
 
   const handleExportImage = () => {
@@ -119,7 +128,7 @@ const Settings = () => {
       id: backupId,
       date: now.toLocaleString(),
       name: backupName,
-      data: backupData
+      data: backupData  // Ensure data property is present
     };
     
     // localStorage에 백업 저장
