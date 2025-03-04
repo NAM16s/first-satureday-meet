@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -8,22 +8,40 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { exportAsImage } from '@/utils/exportUtils';
+import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 
 const Expenses = () => {
+  const expensesRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [newExpenseOpen, setNewExpenseOpen] = useState(false);
+  const [newExpense, setNewExpense] = useState({
+    date: '',
+    name: '',
+    type: '',
+    amount: '',
+    description: ''
+  });
 
   // 임시 지출 데이터
-  const expenses = [
-    { id: '1', date: '2023-12-20', name: '회식비', type: '식대', amount: 350000, description: '송년회 회식' },
-    { id: '2', date: '2023-12-05', name: '김태우', type: '경조사비', amount: 200000, description: '결혼축의금' },
-    { id: '3', date: '2023-11-15', name: '단체활동', type: '기타', amount: 150000, description: '볼링장 이용료' },
-    { id: '4', date: '2023-10-10', name: '회식비', type: '식대', amount: 280000, description: '정기모임 식대' },
-    { id: '5', date: '2023-09-15', name: '유봉상', type: '경조사비', amount: 100000, description: '부친상' },
-  ];
+  const [expenses, setExpenses] = useState([
+    { id: '1', date: '2023-12-20', name: '회식비', type: '식대', amount: 350000, description: '송년회 회식', year: 2023, month: 12 },
+    { id: '2', date: '2023-12-05', name: '김태우', type: '경조사비', amount: 200000, description: '결혼축의금', year: 2023, month: 12 },
+    { id: '3', date: '2023-11-15', name: '단체활동', type: '기타', amount: 150000, description: '볼링장 이용료', year: 2023, month: 11 },
+    { id: '4', date: '2023-10-10', name: '회식비', type: '식대', amount: 280000, description: '정기모임 식대', year: 2023, month: 10 },
+    { id: '5', date: '2023-09-15', name: '유봉상', type: '경조사비', amount: 100000, description: '부친상', year: 2023, month: 9 },
+    { id: '6', date: '2024-01-10', name: '회식비', type: '식대', amount: 300000, description: '신년회 회식', year: 2024, month: 1 },
+  ]);
 
-  const totalExpense = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  // 선택한 연도의 지출만 필터링
+  const filteredExpenses = expenses.filter(expense => {
+    const year = new Date(expense.date).getFullYear();
+    return year === selectedYear;
+  });
+
+  const totalExpense = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   const handlePreviousYear = () => {
     setSelectedYear(prev => prev - 1);
@@ -34,15 +52,40 @@ const Expenses = () => {
   };
 
   const handleExportImage = () => {
-    // 이미지 내보내기 로직 (미구현)
-    alert('이미지 내보내기 기능은 아직 구현되지 않았습니다.');
+    exportAsImage(expensesRef.current!.id, `지출내역_${selectedYear}`);
+    toast.success('이미지가 다운로드되었습니다.');
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setNewExpense(prev => ({ ...prev, [field]: value }));
   };
 
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    // 지출 추가 로직 (미구현)
+    if (!newExpense.date || !newExpense.name || !newExpense.type || !newExpense.amount) {
+      toast.error('필수 항목을 모두 입력해주세요.');
+      return;
+    }
+
+    const date = new Date(newExpense.date);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    
+    const newExpenseItem = {
+      id: uuidv4(),
+      date: newExpense.date,
+      name: newExpense.name,
+      type: newExpense.type,
+      amount: Number(newExpense.amount),
+      description: newExpense.description,
+      year,
+      month
+    };
+
+    setExpenses(prev => [newExpenseItem, ...prev]);
     setNewExpenseOpen(false);
-    alert('새로운 지출이 추가되었습니다.');
+    setNewExpense({ date: '', name: '', type: '', amount: '', description: '' });
+    toast.success('새로운 지출이 추가되었습니다.');
   };
 
   return (
@@ -69,17 +112,32 @@ const Expenses = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date">날짜</Label>
-                    <Input id="date" type="date" required />
+                    <Input 
+                      id="date" 
+                      type="date" 
+                      value={newExpense.date}
+                      onChange={(e) => handleInputChange('date', e.target.value)}
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="name">내용</Label>
-                    <Input id="name" placeholder="내용 입력" required />
+                    <Input 
+                      id="name" 
+                      placeholder="내용 입력" 
+                      value={newExpense.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      required 
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="type">항목</Label>
-                    <Select>
+                    <Select
+                      value={newExpense.type}
+                      onValueChange={(value) => handleInputChange('type', value)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="항목 선택" />
                       </SelectTrigger>
@@ -92,12 +150,24 @@ const Expenses = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="amount">금액</Label>
-                    <Input id="amount" type="number" min="0" required />
+                    <Input 
+                      id="amount" 
+                      type="number" 
+                      min="0"
+                      value={newExpense.amount}
+                      onChange={(e) => handleInputChange('amount', e.target.value)}
+                      required 
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">설명 (선택사항)</Label>
-                  <Textarea id="description" placeholder="설명을 입력하세요" />
+                  <Textarea 
+                    id="description" 
+                    placeholder="설명을 입력하세요"
+                    value={newExpense.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                  />
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setNewExpenseOpen(false)}>
@@ -121,40 +191,50 @@ const Expenses = () => {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>지출 내역</CardTitle>
-          <div className="text-lg font-semibold text-red-600">
-            총 지출: {totalExpense.toLocaleString()}원
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-muted">
-                  <th className="p-2 text-left">날짜</th>
-                  <th className="p-2 text-left">내용</th>
-                  <th className="p-2 text-left">항목</th>
-                  <th className="p-2 text-right">금액</th>
-                  <th className="p-2 text-left">설명</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map(expense => (
-                  <tr key={expense.id} className="border-b">
-                    <td className="p-2">{expense.date}</td>
-                    <td className="p-2">{expense.name}</td>
-                    <td className="p-2">{expense.type}</td>
-                    <td className="p-2 text-right">{expense.amount.toLocaleString()}원</td>
-                    <td className="p-2">{expense.description}</td>
+      <div id="expenses-content" ref={expensesRef} className="space-y-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>지출 내역</CardTitle>
+            <div className="text-lg font-semibold text-red-600">
+              총 지출: {totalExpense.toLocaleString()}원
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="p-2 text-left">날짜</th>
+                    <th className="p-2 text-left">내용</th>
+                    <th className="p-2 text-left">항목</th>
+                    <th className="p-2 text-right">금액</th>
+                    <th className="p-2 text-left">설명</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody>
+                  {filteredExpenses.length > 0 ? (
+                    filteredExpenses.map(expense => (
+                      <tr key={expense.id} className="border-b">
+                        <td className="p-2">{expense.date}</td>
+                        <td className="p-2">{expense.name}</td>
+                        <td className="p-2">{expense.type}</td>
+                        <td className="p-2 text-right">{expense.amount.toLocaleString()}원</td>
+                        <td className="p-2">{expense.description}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                        {selectedYear}년도의 지출 내역이 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

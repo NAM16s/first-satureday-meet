@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -8,22 +8,55 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { exportAsImage } from '@/utils/exportUtils';
+import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 
 const Income = () => {
+  const incomeRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [newIncomeOpen, setNewIncomeOpen] = useState(false);
+  const [newIncome, setNewIncome] = useState({
+    date: '',
+    member: '',
+    type: '',
+    amount: '',
+    description: ''
+  });
 
   // 임시 수입 데이터
-  const incomes = [
-    { id: '1', date: '2023-12-15', name: '김성우', type: '회비', amount: 50000, description: '12월 회비' },
-    { id: '2', date: '2023-12-14', name: '유영우', type: '회비', amount: 50000, description: '12월 회비' },
-    { id: '3', date: '2023-12-10', name: '이정규', type: '회비', amount: 50000, description: '12월 회비' },
-    { id: '4', date: '2023-12-08', name: '강병우', type: '기타', amount: 100000, description: '친목비 환급' },
-    { id: '5', date: '2023-12-05', name: '문석규', type: '회비', amount: 50000, description: '12월 회비' },
-  ];
+  const [incomes, setIncomes] = useState([
+    { id: '1', date: '2023-12-15', name: '김성우', type: '회비', amount: 50000, description: '12월 회비', year: 2023, month: 12 },
+    { id: '2', date: '2023-12-14', name: '유영우', type: '회비', amount: 50000, description: '12월 회비', year: 2023, month: 12 },
+    { id: '3', date: '2023-12-10', name: '이정규', type: '회비', amount: 50000, description: '12월 회비', year: 2023, month: 12 },
+    { id: '4', date: '2023-12-08', name: '강병우', type: '기타', amount: 100000, description: '친목비 환급', year: 2023, month: 12 },
+    { id: '5', date: '2023-12-05', name: '문석규', type: '회비', amount: 50000, description: '12월 회비', year: 2023, month: 12 },
+    { id: '6', date: '2024-01-05', name: '남원식', type: '회비', amount: 50000, description: '1월 회비', year: 2024, month: 1 },
+  ]);
 
-  const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
+  // 임시 회원 데이터
+  const members = [
+    { id: 'bwkang', name: '강병우' },
+    { id: 'swkim', name: '김성우' },
+    { id: 'twkim', name: '김태우' },
+    { id: 'wjkim', name: '김원중' },
+    { id: 'sgmoon', name: '문석규' },
+    { id: 'wsnam', name: '남원식' },
+    { id: 'hysong', name: '송호영' },
+    { id: 'bsyoo', name: '유봉상' },
+    { id: 'ywyoo', name: '유영우' },
+    { id: 'jglee', name: '이정규' },
+    { id: 'pylim', name: '임평열' },
+  ].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+
+  // 선택한 연도의 수입만 필터링
+  const filteredIncomes = incomes.filter(income => {
+    const year = new Date(income.date).getFullYear();
+    return year === selectedYear;
+  });
+
+  const totalIncome = filteredIncomes.reduce((sum, income) => sum + income.amount, 0);
 
   const handlePreviousYear = () => {
     setSelectedYear(prev => prev - 1);
@@ -34,15 +67,42 @@ const Income = () => {
   };
 
   const handleExportImage = () => {
-    // 이미지 내보내기 로직 (미구현)
-    alert('이미지 내보내기 기능은 아직 구현되지 않았습니다.');
+    exportAsImage(incomeRef.current!.id, `수입내역_${selectedYear}`);
+    toast.success('이미지가 다운로드되었습니다.');
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setNewIncome(prev => ({ ...prev, [field]: value }));
   };
 
   const handleAddIncome = (e: React.FormEvent) => {
     e.preventDefault();
-    // 수입 추가 로직 (미구현)
+    if (!newIncome.date || !newIncome.member || !newIncome.type || !newIncome.amount) {
+      toast.error('필수 항목을 모두 입력해주세요.');
+      return;
+    }
+
+    const date = new Date(newIncome.date);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    
+    const memberName = members.find(m => m.id === newIncome.member)?.name || '';
+    
+    const newIncomeItem = {
+      id: uuidv4(),
+      date: newIncome.date,
+      name: memberName,
+      type: newIncome.type,
+      amount: Number(newIncome.amount),
+      description: newIncome.description,
+      year,
+      month
+    };
+
+    setIncomes(prev => [newIncomeItem, ...prev]);
     setNewIncomeOpen(false);
-    alert('새로운 수입이 추가되었습니다.');
+    setNewIncome({ date: '', member: '', type: '', amount: '', description: '' });
+    toast.success('새로운 수입이 추가되었습니다.');
   };
 
   return (
@@ -69,19 +129,27 @@ const Income = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date">날짜</Label>
-                    <Input id="date" type="date" required />
+                    <Input 
+                      id="date" 
+                      type="date" 
+                      value={newIncome.date}
+                      onChange={(e) => handleInputChange('date', e.target.value)}
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="member">회원</Label>
-                    <Select>
+                    <Select
+                      value={newIncome.member}
+                      onValueChange={(value) => handleInputChange('member', value)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="회원 선택" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="김성우">김성우</SelectItem>
-                        <SelectItem value="김태우">김태우</SelectItem>
-                        <SelectItem value="김원중">김원중</SelectItem>
-                        {/* 다른 회원들도 추가 */}
+                        {members.map(member => (
+                          <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -89,7 +157,10 @@ const Income = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="type">항목</Label>
-                    <Select>
+                    <Select
+                      value={newIncome.type}
+                      onValueChange={(value) => handleInputChange('type', value)}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="항목 선택" />
                       </SelectTrigger>
@@ -101,12 +172,24 @@ const Income = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="amount">금액</Label>
-                    <Input id="amount" type="number" min="0" required />
+                    <Input 
+                      id="amount" 
+                      type="number" 
+                      min="0"
+                      value={newIncome.amount}
+                      onChange={(e) => handleInputChange('amount', e.target.value)}
+                      required 
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">설명 (선택사항)</Label>
-                  <Textarea id="description" placeholder="설명을 입력하세요" />
+                  <Textarea 
+                    id="description" 
+                    placeholder="설명을 입력하세요"
+                    value={newIncome.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                  />
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setNewIncomeOpen(false)}>
@@ -130,40 +213,50 @@ const Income = () => {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>수입 내역</CardTitle>
-          <div className="text-lg font-semibold text-green-600">
-            총 수입: {totalIncome.toLocaleString()}원
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-muted">
-                  <th className="p-2 text-left">날짜</th>
-                  <th className="p-2 text-left">회원명</th>
-                  <th className="p-2 text-left">항목</th>
-                  <th className="p-2 text-right">금액</th>
-                  <th className="p-2 text-left">설명</th>
-                </tr>
-              </thead>
-              <tbody>
-                {incomes.map(income => (
-                  <tr key={income.id} className="border-b">
-                    <td className="p-2">{income.date}</td>
-                    <td className="p-2">{income.name}</td>
-                    <td className="p-2">{income.type}</td>
-                    <td className="p-2 text-right">{income.amount.toLocaleString()}원</td>
-                    <td className="p-2">{income.description}</td>
+      <div id="income-content" ref={incomeRef} className="space-y-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>수입 내역</CardTitle>
+            <div className="text-lg font-semibold text-green-600">
+              총 수입: {totalIncome.toLocaleString()}원
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="p-2 text-left">날짜</th>
+                    <th className="p-2 text-left">회원명</th>
+                    <th className="p-2 text-left">항목</th>
+                    <th className="p-2 text-right">금액</th>
+                    <th className="p-2 text-left">설명</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody>
+                  {filteredIncomes.length > 0 ? (
+                    filteredIncomes.map(income => (
+                      <tr key={income.id} className="border-b">
+                        <td className="p-2">{income.date}</td>
+                        <td className="p-2">{income.name}</td>
+                        <td className="p-2">{income.type}</td>
+                        <td className="p-2 text-right">{income.amount.toLocaleString()}원</td>
+                        <td className="p-2">{income.description}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                        {selectedYear}년도의 수입 내역이 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
