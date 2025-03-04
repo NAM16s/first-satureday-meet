@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
+import { databaseService } from '@/services/databaseService';
 
 const Income = () => {
   const incomeRef = useRef<HTMLDivElement>(null);
@@ -25,30 +25,16 @@ const Income = () => {
     description: ''
   });
 
-  // 임시 수입 데이터
-  const [incomes, setIncomes] = useState([
-    { id: '1', date: '2023-12-15', name: '김성우', type: '회비', amount: 50000, description: '12월 회비', year: 2023, month: 12 },
-    { id: '2', date: '2023-12-14', name: '유영우', type: '회비', amount: 50000, description: '12월 회비', year: 2023, month: 12 },
-    { id: '3', date: '2023-12-10', name: '이정규', type: '회비', amount: 50000, description: '12월 회비', year: 2023, month: 12 },
-    { id: '4', date: '2023-12-08', name: '강병우', type: '기타', amount: 100000, description: '친목비 환급', year: 2023, month: 12 },
-    { id: '5', date: '2023-12-05', name: '문석규', type: '회비', amount: 50000, description: '12월 회비', year: 2023, month: 12 },
-    { id: '6', date: '2024-01-05', name: '남원식', type: '회비', amount: 50000, description: '1월 회비', year: 2024, month: 1 },
-  ]);
+  // 수입 데이터 로드
+  const [incomes, setIncomes] = useState(() => databaseService.getIncomes());
+  
+  // 회원 데이터 로드
+  const [members, setMembers] = useState(() => databaseService.getMembers());
 
-  // 임시 회원 데이터
-  const members = [
-    { id: 'bwkang', name: '강병우' },
-    { id: 'swkim', name: '김성우' },
-    { id: 'twkim', name: '김태우' },
-    { id: 'wjkim', name: '김원중' },
-    { id: 'sgmoon', name: '문석규' },
-    { id: 'wsnam', name: '남원식' },
-    { id: 'hysong', name: '송호영' },
-    { id: 'bsyoo', name: '유봉상' },
-    { id: 'ywyoo', name: '유영우' },
-    { id: 'jglee', name: '이정규' },
-    { id: 'pylim', name: '임평열' },
-  ].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  // 데이터 변경시 저장
+  useEffect(() => {
+    databaseService.saveIncomes(incomes);
+  }, [incomes]);
 
   // 선택한 연도의 수입만 필터링
   const filteredIncomes = incomes.filter(income => {
@@ -88,16 +74,16 @@ const Income = () => {
     
     const memberName = members.find(m => m.id === newIncome.member)?.name || '';
     
-    const newIncomeItem = {
-      id: uuidv4(),
+    const newIncomeItem = databaseService.addIncome({
       date: newIncome.date,
       name: memberName,
       type: newIncome.type,
       amount: Number(newIncome.amount),
       description: newIncome.description,
       year,
-      month
-    };
+      month,
+      userId: newIncome.member
+    });
 
     setIncomes(prev => [newIncomeItem, ...prev]);
     setNewIncomeOpen(false);
