@@ -6,8 +6,14 @@ export const STORAGE_KEYS = {
   USERS: 'moim_users',
   AUTH_USER: 'moim_auth_user',
   FINANCE_DATA: 'moim_finance_data',
-  SETTINGS: 'moim_settings'
+  SETTINGS: 'moim_settings',
+  TRANSACTIONS: 'moim_transactions',
+  YEARLY_DATA: 'moim_yearly_data',
+  BACKUP: 'moim_backup'
 };
+
+// 현재 연도 상수
+export const CURRENT_YEAR = new Date().getFullYear();
 
 // 기본 사용자 목록
 export const USERS: User[] = [
@@ -23,6 +29,18 @@ export const USERS: User[] = [
   { id: 'jglee', password: '01030204982', name: '이정규', role: 'member' },
   { id: 'pylim', password: '01088534982', name: '임평열', role: 'member' }
 ];
+
+// 초기 트랜잭션 목록
+export const INITIAL_TRANSACTIONS = [];
+
+// 초기 연간 데이터
+export const INITIAL_YEARLY_DATA = {
+  year: CURRENT_YEAR,
+  balanceForward: 0,
+  currentBalance: 0,
+  monthlyIncomes: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, amount: 0 })),
+  monthlyExpenses: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, amount: 0 }))
+};
 
 // 수입/지출 항목 타입
 export const INCOME_TYPES = ['회비', '기타'] as const;

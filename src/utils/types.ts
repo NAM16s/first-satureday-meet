@@ -62,3 +62,30 @@ export interface FinanceData {
     carryoverAmount: Record<number, number>; // 년도별 이월 금액
   };
 }
+
+// Transaction 인터페이스 (FinanceContext용)
+export interface Transaction {
+  id: string;
+  date: string;
+  userId: string;
+  category: string;
+  amount: number;
+  description?: string;
+}
+
+// YearlyData 인터페이스 (FinanceContext용)
+export interface YearlyData {
+  year: number;
+  balanceForward: number;
+  currentBalance: number;
+  monthlyIncomes: { month: number; amount: number }[];
+  monthlyExpenses: { month: number; amount: number }[];
+}
+
+// MemberDues 인터페이스 (FinanceContext용)
+export interface MemberDues {
+  userId: string;
+  duesByMonth: { [month: number]: number };
+  totalDue: number;
+  unpaidAmount: number;
+}
