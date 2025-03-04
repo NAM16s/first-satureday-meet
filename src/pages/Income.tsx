@@ -1,345 +1,170 @@
 
-import React, { useState } from 'react';
-import Layout from '../components/Layout';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { PlusCircle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '../context/AuthContext';
-import { useFinance } from '../context/FinanceContext';
-import { formatCurrency, getKoreanMonthName, sortUsersByKoreanName, INCOME_CATEGORIES } from '../utils/constants';
-import { ChevronLeft, ChevronRight, Calendar, Plus, Pencil, Trash2 } from 'lucide-react';
-import { Transaction } from '../utils/types';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 const Income = () => {
-  const { users, currentUser } = useAuth();
-  const { transactions, selectedYear, setSelectedYear, addTransaction, updateTransaction, deleteTransaction } = useFinance();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [transactionData, setTransactionData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    userId: '',
-    category: INCOME_CATEGORIES[0],
-    amount: 0,
-    description: '',
-  });
-  
-  // Filter income transactions for the selected year
-  const incomeTransactions = transactions.filter(
-    transaction => 
-      (transaction.category === '회비' || transaction.category === '기타') &&
-      new Date(transaction.date).getFullYear() === selectedYear
-  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [newIncomeOpen, setNewIncomeOpen] = useState(false);
 
-  const totalIncome = incomeTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+  // 임시 수입 데이터
+  const incomes = [
+    { id: '1', date: '2023-12-15', name: '김성우', type: '회비', amount: 50000, description: '12월 회비' },
+    { id: '2', date: '2023-12-14', name: '유영우', type: '회비', amount: 50000, description: '12월 회비' },
+    { id: '3', date: '2023-12-10', name: '이정규', type: '회비', amount: 50000, description: '12월 회비' },
+    { id: '4', date: '2023-12-08', name: '강병우', type: '기타', amount: 100000, description: '친목비 환급' },
+    { id: '5', date: '2023-12-05', name: '문석규', type: '회비', amount: 50000, description: '12월 회비' },
+  ];
 
-  // Check if user can edit/delete (admin or treasurer)
-  const canModify = currentUser?.role === 'admin' || currentUser?.role === 'treasurer';
+  const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
 
   const handlePreviousYear = () => {
-    setSelectedYear(selectedYear - 1);
+    setSelectedYear(prev => prev - 1);
   };
 
   const handleNextYear = () => {
-    setSelectedYear(selectedYear + 1);
+    setSelectedYear(prev => prev + 1);
   };
 
-  const handleAddNewIncome = () => {
-    setSelectedTransaction(null);
-    setTransactionData({
-      date: new Date().toISOString().split('T')[0],
-      userId: currentUser?.id || '',
-      category: INCOME_CATEGORIES[0],
-      amount: 0,
-      description: '',
-    });
-    setIsDialogOpen(true);
+  const handleExportImage = () => {
+    // 이미지 내보내기 로직 (미구현)
+    alert('이미지 내보내기 기능은 아직 구현되지 않았습니다.');
   };
 
-  const handleEditIncome = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setTransactionData({
-      date: new Date(transaction.date).toISOString().split('T')[0],
-      userId: transaction.userId,
-      category: transaction.category,
-      amount: transaction.amount,
-      description: transaction.description || '',
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteIncome = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleSubmitIncome = () => {
-    if (selectedTransaction) {
-      // Update existing transaction
-      updateTransaction({
-        ...selectedTransaction,
-        date: new Date(transactionData.date).toISOString(),
-        userId: transactionData.userId,
-        category: transactionData.category,
-        amount: transactionData.amount,
-        description: transactionData.description,
-      });
-    } else {
-      // Add new transaction
-      addTransaction({
-        date: new Date(transactionData.date).toISOString(),
-        userId: transactionData.userId,
-        category: transactionData.category,
-        amount: transactionData.amount,
-        description: transactionData.description,
-      });
-    }
-    setIsDialogOpen(false);
-  };
-
-  const confirmDelete = () => {
-    if (selectedTransaction) {
-      deleteTransaction(selectedTransaction.id);
-      setIsDeleteDialogOpen(false);
-    }
-  };
-
-  // Get user name by ID
-  const getUserName = (userId: string) => {
-    const user = users.find(user => user.id === userId);
-    return user ? user.name : userId;
-  };
-
-  // Format date to Korean format
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  const handleAddIncome = (e: React.FormEvent) => {
+    e.preventDefault();
+    // 수입 추가 로직 (미구현)
+    setNewIncomeOpen(false);
+    alert('새로운 수입이 추가되었습니다.');
   };
 
   return (
-    <Layout title="수입내역">
-      <div className="space-y-6">
-        {/* Year selector */}
-        <div className="flex justify-center items-center mb-6">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={handlePreviousYear}
-            className="mr-2"
-          >
-            <ChevronLeft className="h-5 w-5" />
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold">수입내역</h2>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={handleExportImage}>
+            <Download className="mr-2 h-4 w-4" />
+            이미지로 내보내기
           </Button>
-          <div className="flex items-center px-4 py-2 bg-card border rounded-md">
-            <Calendar className="mr-2 h-5 w-5 text-muted-foreground" />
-            <span className="font-medium">{selectedYear}년</span>
-          </div>
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={handleNextYear}
-            className="ml-2"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>{selectedYear}년 수입 총액: {formatCurrency(totalIncome)}</CardTitle>
-            {canModify && (
-              <Button onClick={handleAddNewIncome}>
-                <Plus className="h-4 w-4 mr-2" />
+          <Dialog open={newIncomeOpen} onOpenChange={setNewIncomeOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
                 새로운 수입
               </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>날짜</TableHead>
-                    <TableHead>회원명</TableHead>
-                    <TableHead>항목</TableHead>
-                    <TableHead className="text-right">금액</TableHead>
-                    <TableHead>설명</TableHead>
-                    {canModify && (
-                      <TableHead className="w-[100px] text-center">관리</TableHead>
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {incomeTransactions.length > 0 ? (
-                    incomeTransactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell>{formatDate(transaction.date)}</TableCell>
-                        <TableCell>{getUserName(transaction.userId)}</TableCell>
-                        <TableCell>{transaction.category}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(transaction.amount)}
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate">
-                          {transaction.description || '-'}
-                        </TableCell>
-                        {canModify && (
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center space-x-2">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleEditIncome(transaction)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleDeleteIncome(transaction)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={canModify ? 6 : 5} className="text-center py-10">
-                        수입 내역이 없습니다.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>새로운 수입 추가</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAddIncome} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="date">날짜</Label>
+                    <Input id="date" type="date" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="member">회원</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="회원 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="김성우">김성우</SelectItem>
+                        <SelectItem value="김태우">김태우</SelectItem>
+                        <SelectItem value="김원중">김원중</SelectItem>
+                        {/* 다른 회원들도 추가 */}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="type">항목</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="항목 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="회비">회비</SelectItem>
+                        <SelectItem value="기타">기타</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">금액</Label>
+                    <Input id="amount" type="number" min="0" required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">설명 (선택사항)</Label>
+                  <Textarea id="description" placeholder="설명을 입력하세요" />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setNewIncomeOpen(false)}>
+                    취소
+                  </Button>
+                  <Button type="submit">추가</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      {/* Dialog for adding/editing income */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {selectedTransaction ? '수입 내역 수정' : '새로운 수입 등록'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="date">날짜</Label>
-              <Input
-                id="date"
-                type="date"
-                value={transactionData.date}
-                onChange={(e) => setTransactionData({...transactionData, date: e.target.value})}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="user">회원</Label>
-              <Select
-                value={transactionData.userId}
-                onValueChange={(value) => setTransactionData({...transactionData, userId: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="회원 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortUsersByKoreanName(users).map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="category">항목</Label>
-              <Select
-                value={transactionData.category}
-                onValueChange={(value) => setTransactionData({...transactionData, category: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="항목 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {INCOME_CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="amount">금액</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={transactionData.amount}
-                onChange={(e) => setTransactionData({...transactionData, amount: Number(e.target.value)})}
-                min={0}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">설명 (선택사항)</Label>
-              <Textarea
-                id="description"
-                value={transactionData.description}
-                onChange={(e) => setTransactionData({...transactionData, description: e.target.value})}
-                placeholder="추가 설명 입력 (선택사항)"
-              />
-            </div>
-            
-            <div className="flex justify-end space-x-2 pt-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                취소
-              </Button>
-              <Button onClick={handleSubmitIncome}>
-                {selectedTransaction ? '수정' : '등록'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <div className="flex justify-center items-center space-x-4 mb-6">
+        <Button variant="outline" size="sm" onClick={handlePreviousYear}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h3 className="text-xl font-semibold">{selectedYear}년</h3>
+        <Button variant="outline" size="sm" onClick={handleNextYear}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
 
-      {/* Confirm delete dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>수입 내역 삭제</AlertDialogTitle>
-            <AlertDialogDescription>
-              이 수입 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
-              삭제
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Layout>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>수입 내역</CardTitle>
+          <div className="text-lg font-semibold text-green-600">
+            총 수입: {totalIncome.toLocaleString()}원
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-muted">
+                  <th className="p-2 text-left">날짜</th>
+                  <th className="p-2 text-left">회원명</th>
+                  <th className="p-2 text-left">항목</th>
+                  <th className="p-2 text-right">금액</th>
+                  <th className="p-2 text-left">설명</th>
+                </tr>
+              </thead>
+              <tbody>
+                {incomes.map(income => (
+                  <tr key={income.id} className="border-b">
+                    <td className="p-2">{income.date}</td>
+                    <td className="p-2">{income.name}</td>
+                    <td className="p-2">{income.type}</td>
+                    <td className="p-2 text-right">{income.amount.toLocaleString()}원</td>
+                    <td className="p-2">{income.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

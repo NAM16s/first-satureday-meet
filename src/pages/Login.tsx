@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -11,15 +11,8 @@ const Login = () => {
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // If already authenticated, redirect to dashboard
-    if (isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,10 +21,10 @@ const Login = () => {
     try {
       const success = login(id, password);
       if (success) {
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('로그인 오류:', error);
     } finally {
       setIsLoading(false);
     }

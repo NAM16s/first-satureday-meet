@@ -1,53 +1,64 @@
 
-export type UserRole = 'admin' | 'treasurer' | 'member';
+// 사용자 역할 타입
+export type Role = 'admin' | 'treasurer' | 'member';
 
+// 사용자 인터페이스
 export interface User {
   id: string;
   password: string;
   name: string;
-  role: UserRole;
+  role: Role;
 }
 
-export interface Transaction {
+// 수입 항목 타입
+export type IncomeType = '회비' | '기타';
+
+// 지출 항목 타입
+export type ExpenseType = '식대' | '경조사비' | '기타';
+
+// 수입 인터페이스
+export interface Income {
   id: string;
   date: string;
   userId: string;
-  category: string;
+  type: IncomeType;
   amount: number;
   description?: string;
-}
-
-export interface MonthlyIncome {
-  month: number;
-  amount: number;
-}
-
-export interface MonthlyExpense {
-  month: number;
-  amount: number;
-}
-
-export interface YearlyData {
   year: number;
-  balanceForward: number;
-  currentBalance: number;
-  monthlyIncomes: MonthlyIncome[];
-  monthlyExpenses: MonthlyExpense[];
+  month: number;
 }
 
-export interface MemberDues {
+// 지출 인터페이스
+export interface Expense {
+  id: string;
+  date: string;
   userId: string;
-  duesByMonth: { [month: number]: number };
-  totalDue: number;
-  unpaidAmount: number;
+  type: ExpenseType;
+  amount: number;
+  description?: string;
+  year: number;
+  month: number;
 }
 
-export interface BackupData {
-  timestamp: string;
-  data: {
-    users: User[];
-    transactions: Transaction[];
-    yearlyData: YearlyData[];
-    memberDues: MemberDues[];
+// 회비 납부 상태 인터페이스
+export interface DuesStatus {
+  userId: string;
+  year: number;
+  monthlyDues: {
+    month: number;
+    amount: number;
+    isPaid: boolean;
+    incomeId?: string;
+  }[];
+}
+
+// 재정 데이터 인터페이스
+export interface FinanceData {
+  incomes: Income[];
+  expenses: Expense[];
+  duesStatus: DuesStatus[];
+  settings: {
+    monthlyDuesAmount: number;
+    carryoverAmount: Record<number, number>; // 년도별 이월 금액
   };
 }

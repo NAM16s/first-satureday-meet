@@ -20,13 +20,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [users, setUsers] = useState<User[]>(USERS);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // Load user from localStorage on initial render
+  // 초기 렌더링 시 localStorage에서 사용자 로드
   useEffect(() => {
     const storedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
     if (storedUsers) {
       setUsers(JSON.parse(storedUsers));
     } else {
-      // Initialize with default users if not in localStorage
+      // localStorage에 없으면 기본 사용자로 초기화
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(USERS));
     }
 
@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  // Save users to localStorage when they change
+  // 사용자가 변경될 때 localStorage에 저장
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   }, [users]);
@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     if (user) {
-      // Don't store password in localStorage for security
+      // 보안을 위해 localStorage에 비밀번호 저장 안 함
       const safeUser = { ...user };
       setCurrentUser(safeUser);
       setIsAuthenticated(true);
