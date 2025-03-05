@@ -41,18 +41,11 @@ const Members = () => {
       try {
         let data = await databaseService.getMembers();
         
-        // Filter out admin accounts by checking if the member is in the user list but not admin
-        if (currentUser && currentUser.role === 'admin') {
-          // If the current user is admin, show all members
-          setMembers(data);
-        } else {
-          // For non-admin users, filter out admin accounts
-          // We'll need to get the users to check roles
-          const users = JSON.parse(localStorage.getItem('moim_users') || '[]');
-          const adminIds = users.filter((u: any) => u.role === 'admin').map((u: any) => u.id);
-          data = data.filter(member => !adminIds.includes(member.id));
-          setMembers(data);
-        }
+        // Always filter out admin accounts regardless of current user role
+        const users = JSON.parse(localStorage.getItem('moim_users') || '[]');
+        const adminIds = users.filter((u: any) => u.role === 'admin').map((u: any) => u.id);
+        data = data.filter(member => !adminIds.includes(member.id));
+        setMembers(data);
       } catch (error) {
         console.error('Error loading members:', error);
         toast.error('회원 데이터를 불러오는 중 오류가 발생했습니다.');
@@ -217,7 +210,7 @@ const Members = () => {
       
       if (duesIncome) {
         await databaseService.updateIncome(duesIncome.id, { amount });
-        toast.success(`${month}월 회비 금액이 수정되었습니다.`);
+        toast.success(`${month}월 회비 금액 수정되었습니다.`);
       }
     }
     
