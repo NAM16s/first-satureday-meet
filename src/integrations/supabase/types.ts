@@ -9,7 +9,187 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      dues: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          income_id: string | null
+          is_paid: boolean | null
+          month: number
+          user_id: string | null
+          year: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          income_id?: string | null
+          is_paid?: boolean | null
+          month: number
+          user_id?: string | null
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          income_id?: string | null
+          is_paid?: boolean | null
+          month?: number
+          user_id?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dues_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string | null
+          date: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          created_at: string | null
+          date: string
+          description: string | null
+          id: string
+          month: number
+          name: string
+          type: string
+          year: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          date: string
+          description?: string | null
+          id?: string
+          month: number
+          name: string
+          type: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          month?: number
+          name?: string
+          type?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      incomes: {
+        Row: {
+          amount: number
+          created_at: string | null
+          date: string
+          description: string | null
+          id: string
+          month: number
+          name: string
+          type: string
+          user_id: string | null
+          year: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          date: string
+          description?: string | null
+          id?: string
+          month: number
+          name: string
+          type: string
+          user_id?: string | null
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          month?: number
+          name?: string
+          type?: string
+          user_id?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incomes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      members: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          carryover_amounts: Json | null
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          carryover_amounts?: Json | null
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          carryover_amounts?: Json | null
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

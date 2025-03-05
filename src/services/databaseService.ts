@@ -25,11 +25,21 @@ const setLocalData = <T>(key: string, data: T): void => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
+// Type-safe way to access tables
+const tables = {
+  members: 'members',
+  dues: 'dues',
+  incomes: 'incomes',
+  expenses: 'expenses',
+  events: 'events',
+  settings: 'settings'
+} as const;
+
 // Members
 const getMembers = async () => {
   try {
     const { data, error } = await supabase
-      .from('members')
+      .from(tables.members)
       .select('*')
       .order('name');
     
@@ -60,11 +70,11 @@ const getMembers = async () => {
   }
 };
 
-const saveMembers = async (members) => {
+const saveMembers = async (members: any[]) => {
   try {
     // First, delete all existing members
     const { error: deleteError } = await supabase
-      .from('members')
+      .from(tables.members)
       .delete()
       .neq('id', 'placeholder');
     
@@ -72,7 +82,7 @@ const saveMembers = async (members) => {
     
     // Then insert all members
     const { error: insertError } = await supabase
-      .from('members')
+      .from(tables.members)
       .insert(members);
     
     if (insertError) throw insertError;
@@ -87,10 +97,10 @@ const saveMembers = async (members) => {
 };
 
 // Add a function to sync a user to members list
-const syncUserToMembers = async (user) => {
+const syncUserToMembers = async (user: any) => {
   try {
     const { data: existingMember, error: checkError } = await supabase
-      .from('members')
+      .from(tables.members)
       .select('*')
       .eq('id', user.id)
       .single();
@@ -99,7 +109,7 @@ const syncUserToMembers = async (user) => {
     
     if (!existingMember) {
       const { error: insertError } = await supabase
-        .from('members')
+        .from(tables.members)
         .insert([{ id: user.id, name: user.name }]);
       
       if (insertError) throw insertError;
@@ -110,10 +120,10 @@ const syncUserToMembers = async (user) => {
 };
 
 // Dues
-const getDues = async (year) => {
+const getDues = async (year: number) => {
   try {
     const { data, error } = await supabase
-      .from('dues')
+      .from(tables.dues)
       .select('*')
       .eq('year', year);
     
@@ -132,11 +142,11 @@ const getDues = async (year) => {
   }
 };
 
-const saveDues = async (year, dues) => {
+const saveDues = async (year: number, dues: any[]) => {
   try {
     // First, delete existing dues for the year
     const { error: deleteError } = await supabase
-      .from('dues')
+      .from(tables.dues)
       .delete()
       .eq('year', year);
     
@@ -144,7 +154,7 @@ const saveDues = async (year, dues) => {
     
     // Then insert new dues
     const { error: insertError } = await supabase
-      .from('dues')
+      .from(tables.dues)
       .insert(dues.map(due => ({ ...due, year })));
     
     if (insertError) throw insertError;
@@ -162,7 +172,7 @@ const saveDues = async (year, dues) => {
 const getIncomes = async () => {
   try {
     const { data, error } = await supabase
-      .from('incomes')
+      .from(tables.incomes)
       .select('*')
       .order('date', { ascending: false });
     
@@ -181,11 +191,11 @@ const getIncomes = async () => {
   }
 };
 
-const saveIncomes = async (incomes) => {
+const saveIncomes = async (incomes: any[]) => {
   try {
     // First, delete all existing incomes
     const { error: deleteError } = await supabase
-      .from('incomes')
+      .from(tables.incomes)
       .delete()
       .neq('id', 'placeholder');
     
@@ -193,7 +203,7 @@ const saveIncomes = async (incomes) => {
     
     // Then insert all incomes
     const { error: insertError } = await supabase
-      .from('incomes')
+      .from(tables.incomes)
       .insert(incomes);
     
     if (insertError) throw insertError;
@@ -207,7 +217,7 @@ const saveIncomes = async (incomes) => {
   }
 };
 
-const addIncome = async (income) => {
+const addIncome = async (income: any) => {
   try {
     const newIncome = {
       ...income,
@@ -215,7 +225,7 @@ const addIncome = async (income) => {
     };
     
     const { error } = await supabase
-      .from('incomes')
+      .from(tables.incomes)
       .insert([newIncome]);
     
     if (error) throw error;
@@ -240,10 +250,10 @@ const addIncome = async (income) => {
   }
 };
 
-const updateIncome = async (id, updatedData) => {
+const updateIncome = async (id: string, updatedData: any) => {
   try {
     const { error } = await supabase
-      .from('incomes')
+      .from(tables.incomes)
       .update(updatedData)
       .eq('id', id);
     
@@ -251,7 +261,7 @@ const updateIncome = async (id, updatedData) => {
     
     // Also update localStorage for backup
     const incomes = await getIncomes();
-    const updatedIncomes = incomes.map(income => 
+    const updatedIncomes = incomes.map((income: any) => 
       income.id === id ? { ...income, ...updatedData } : income
     );
     setLocalData(STORAGE_KEYS.INCOMES, updatedIncomes);
@@ -259,17 +269,17 @@ const updateIncome = async (id, updatedData) => {
     console.error('Error updating income:', error);
     // Fallback to localStorage
     const incomes = getLocalData(STORAGE_KEYS.INCOMES, []);
-    const updatedIncomes = incomes.map(income => 
+    const updatedIncomes = incomes.map((income: any) => 
       income.id === id ? { ...income, ...updatedData } : income
     );
     setLocalData(STORAGE_KEYS.INCOMES, updatedIncomes);
   }
 };
 
-const deleteIncome = async (id) => {
+const deleteIncome = async (id: string) => {
   try {
     const { error } = await supabase
-      .from('incomes')
+      .from(tables.incomes)
       .delete()
       .eq('id', id);
     
@@ -277,13 +287,13 @@ const deleteIncome = async (id) => {
     
     // Also update localStorage for backup
     const incomes = await getIncomes();
-    const updatedIncomes = incomes.filter(income => income.id !== id);
+    const updatedIncomes = incomes.filter((income: any) => income.id !== id);
     setLocalData(STORAGE_KEYS.INCOMES, updatedIncomes);
   } catch (error) {
     console.error('Error deleting income:', error);
     // Fallback to localStorage
     const incomes = getLocalData(STORAGE_KEYS.INCOMES, []);
-    const updatedIncomes = incomes.filter(income => income.id !== id);
+    const updatedIncomes = incomes.filter((income: any) => income.id !== id);
     setLocalData(STORAGE_KEYS.INCOMES, updatedIncomes);
   }
 };
@@ -292,7 +302,7 @@ const deleteIncome = async (id) => {
 const getExpenses = async () => {
   try {
     const { data, error } = await supabase
-      .from('expenses')
+      .from(tables.expenses)
       .select('*')
       .order('date', { ascending: false });
     
@@ -311,11 +321,11 @@ const getExpenses = async () => {
   }
 };
 
-const saveExpenses = async (expenses) => {
+const saveExpenses = async (expenses: any[]) => {
   try {
     // First, delete all existing expenses
     const { error: deleteError } = await supabase
-      .from('expenses')
+      .from(tables.expenses)
       .delete()
       .neq('id', 'placeholder');
     
@@ -323,7 +333,7 @@ const saveExpenses = async (expenses) => {
     
     // Then insert all expenses
     const { error: insertError } = await supabase
-      .from('expenses')
+      .from(tables.expenses)
       .insert(expenses);
     
     if (insertError) throw insertError;
@@ -337,7 +347,7 @@ const saveExpenses = async (expenses) => {
   }
 };
 
-const addExpense = async (expense) => {
+const addExpense = async (expense: any) => {
   try {
     const newExpense = {
       ...expense,
@@ -345,7 +355,7 @@ const addExpense = async (expense) => {
     };
     
     const { error } = await supabase
-      .from('expenses')
+      .from(tables.expenses)
       .insert([newExpense]);
     
     if (error) throw error;
@@ -370,10 +380,10 @@ const addExpense = async (expense) => {
   }
 };
 
-const updateExpense = async (id, updatedData) => {
+const updateExpense = async (id: string, updatedData: any) => {
   try {
     const { error } = await supabase
-      .from('expenses')
+      .from(tables.expenses)
       .update(updatedData)
       .eq('id', id);
     
@@ -381,7 +391,7 @@ const updateExpense = async (id, updatedData) => {
     
     // Also update localStorage for backup
     const expenses = await getExpenses();
-    const updatedExpenses = expenses.map(expense => 
+    const updatedExpenses = expenses.map((expense: any) => 
       expense.id === id ? { ...expense, ...updatedData } : expense
     );
     setLocalData(STORAGE_KEYS.EXPENSES, updatedExpenses);
@@ -389,17 +399,17 @@ const updateExpense = async (id, updatedData) => {
     console.error('Error updating expense:', error);
     // Fallback to localStorage
     const expenses = getLocalData(STORAGE_KEYS.EXPENSES, []);
-    const updatedExpenses = expenses.map(expense => 
+    const updatedExpenses = expenses.map((expense: any) => 
       expense.id === id ? { ...expense, ...updatedData } : expense
     );
     setLocalData(STORAGE_KEYS.EXPENSES, updatedExpenses);
   }
 };
 
-const deleteExpense = async (id) => {
+const deleteExpense = async (id: string) => {
   try {
     const { error } = await supabase
-      .from('expenses')
+      .from(tables.expenses)
       .delete()
       .eq('id', id);
     
@@ -407,13 +417,13 @@ const deleteExpense = async (id) => {
     
     // Also update localStorage for backup
     const expenses = await getExpenses();
-    const updatedExpenses = expenses.filter(expense => expense.id !== id);
+    const updatedExpenses = expenses.filter((expense: any) => expense.id !== id);
     setLocalData(STORAGE_KEYS.EXPENSES, updatedExpenses);
   } catch (error) {
     console.error('Error deleting expense:', error);
     // Fallback to localStorage
     const expenses = getLocalData(STORAGE_KEYS.EXPENSES, []);
-    const updatedExpenses = expenses.filter(expense => expense.id !== id);
+    const updatedExpenses = expenses.filter((expense: any) => expense.id !== id);
     setLocalData(STORAGE_KEYS.EXPENSES, updatedExpenses);
   }
 };
@@ -422,7 +432,7 @@ const deleteExpense = async (id) => {
 const getEvents = async () => {
   try {
     const { data, error } = await supabase
-      .from('events')
+      .from(tables.events)
       .select('*')
       .order('date', { ascending: false });
     
@@ -441,11 +451,11 @@ const getEvents = async () => {
   }
 };
 
-const saveEvents = async (events) => {
+const saveEvents = async (events: any[]) => {
   try {
     // First, delete all existing events
     const { error: deleteError } = await supabase
-      .from('events')
+      .from(tables.events)
       .delete()
       .neq('id', 'placeholder');
     
@@ -453,7 +463,7 @@ const saveEvents = async (events) => {
     
     // Then insert all events
     const { error: insertError } = await supabase
-      .from('events')
+      .from(tables.events)
       .insert(events);
     
     if (insertError) throw insertError;
@@ -471,11 +481,11 @@ const saveEvents = async (events) => {
 const getSettings = async () => {
   try {
     const { data, error } = await supabase
-      .from('settings')
+      .from(tables.settings)
       .select('*')
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error) throw error;
     
     if (data) {
       return data;
@@ -494,20 +504,20 @@ const getSettings = async () => {
   }
 };
 
-const saveSettings = async (settings) => {
+const saveSettings = async (settings: any) => {
   try {
     // First check if settings exist
     const { data, error: checkError } = await supabase
-      .from('settings')
+      .from(tables.settings)
       .select('id')
-      .single();
+      .maybeSingle();
     
-    if (checkError && checkError.code !== 'PGRST116') throw checkError;
+    if (checkError) throw checkError;
     
     if (data) {
       // Update existing settings
       const { error: updateError } = await supabase
-        .from('settings')
+        .from(tables.settings)
         .update(settings)
         .eq('id', data.id);
       
@@ -515,7 +525,7 @@ const saveSettings = async (settings) => {
     } else {
       // Insert new settings
       const { error: insertError } = await supabase
-        .from('settings')
+        .from(tables.settings)
         .insert([{ ...settings, id: uuidv4() }]);
       
       if (insertError) throw insertError;
@@ -530,12 +540,12 @@ const saveSettings = async (settings) => {
   }
 };
 
-const getCarryoverAmount = async (year) => {
+const getCarryoverAmount = async (year: number) => {
   const settings = await getSettings();
   return settings.carryoverAmounts?.[year] || 0;
 };
 
-const saveCarryoverAmount = async (year, amount) => {
+const saveCarryoverAmount = async (year: number, amount: number) => {
   const settings = await getSettings();
   if (!settings.carryoverAmounts) {
     settings.carryoverAmounts = {};
@@ -545,15 +555,15 @@ const saveCarryoverAmount = async (year, amount) => {
 };
 
 // Calculate current balance based on incomes, expenses and carryover
-const calculateCurrentBalance = async (year) => {
+const calculateCurrentBalance = async (year: number) => {
   const carryover = await getCarryoverAmount(year);
   
-  const incomes = (await getIncomes()).filter(income => {
+  const incomes = (await getIncomes()).filter((income: any) => {
     const incomeYear = new Date(income.date).getFullYear();
     return incomeYear === year;
   });
   
-  const expenses = (await getExpenses()).filter(expense => {
+  const expenses = (await getExpenses()).filter((expense: any) => {
     const expenseYear = new Date(expense.date).getFullYear();
     return expenseYear === year;
   });
@@ -565,16 +575,16 @@ const calculateCurrentBalance = async (year) => {
 };
 
 // Calculate previous year balance
-const calculatePreviousYearBalance = async (year) => {
+const calculatePreviousYearBalance = async (year: number) => {
   const prevYear = year - 1;
   const prevYearCarryover = await getCarryoverAmount(prevYear);
   
-  const incomes = (await getIncomes()).filter(income => {
+  const incomes = (await getIncomes()).filter((income: any) => {
     const incomeYear = new Date(income.date).getFullYear();
     return incomeYear === prevYear;
   });
   
-  const expenses = (await getExpenses()).filter(expense => {
+  const expenses = (await getExpenses()).filter((expense: any) => {
     const expenseYear = new Date(expense.date).getFullYear();
     return expenseYear === prevYear;
   });
@@ -586,13 +596,13 @@ const calculatePreviousYearBalance = async (year) => {
 };
 
 // Get monthly finance data
-const getMonthlyFinanceData = async (year) => {
-  const incomes = (await getIncomes()).filter(income => {
+const getMonthlyFinanceData = async (year: number) => {
+  const incomes = (await getIncomes()).filter((income: any) => {
     const incomeYear = new Date(income.date).getFullYear();
     return incomeYear === year;
   });
   
-  const expenses = (await getExpenses()).filter(expense => {
+  const expenses = (await getExpenses()).filter((expense: any) => {
     const expenseYear = new Date(expense.date).getFullYear();
     return expenseYear === year;
   });
@@ -663,10 +673,10 @@ const getBackups = () => {
   return getLocalData(STORAGE_KEYS.BACKUP, []);
 };
 
-const restoreBackup = async (backupId) => {
+const restoreBackup = async (backupId: string) => {
   try {
     const backups = getBackups();
-    const backup = backups.find(b => b.id === backupId);
+    const backup = backups.find((b: any) => b.id === backupId);
     
     if (backup && backup.data) {
       if (backup.data.members) await saveMembers(backup.data.members);
@@ -684,9 +694,9 @@ const restoreBackup = async (backupId) => {
   }
 };
 
-const deleteBackup = (backupId) => {
+const deleteBackup = (backupId: string) => {
   const backups = getBackups();
-  const updatedBackups = backups.filter(b => b.id !== backupId);
+  const updatedBackups = backups.filter((b: any) => b.id !== backupId);
   setLocalData(STORAGE_KEYS.BACKUP, updatedBackups);
 };
 
