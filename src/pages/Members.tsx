@@ -35,25 +35,76 @@ const Members = () => {
     amount: number;
   } | null>(null);
   
-  // Load members data
+  // Load members data and synchronize with user accounts
   useEffect(() => {
-    const loadMembers = async () => {
+    const syncMembersWithUserAccounts = async () => {
       try {
-        let data = await databaseService.getMembers();
+        let membersData = await databaseService.getMembers();
         
         // Always filter out admin accounts regardless of current user role
         const users = JSON.parse(localStorage.getItem('moim_users') || '[]');
         const adminIds = users.filter((u: any) => u.role === 'admin').map((u: any) => u.id);
-        data = data.filter(member => !adminIds.includes(member.id));
-        setMembers(data);
+        membersData = membersData.filter(member => !adminIds.includes(member.id));
+        
+        // Get all user IDs from localStorage
+        const userIds = users.map((u: any) => u.id);
+        
+        // Get all dues data to check for payments
+        const allYearsDues = await loadAllYearsDuesData();
+        
+        // Filter out members who have deleted user accounts and no dues payments
+        const filteredMembers = membersData.filter(member => {
+          // Keep the member if they still have a user account
+          if (userIds.includes(member.id)) {
+            return true;
+          }
+          
+          // Check if the member has any dues payments
+          const hasDuesPayments = allYearsDues.some(dues => 
+            dues.userId === member.id && 
+            dues.monthlyDues.some((due: any) => due.paid)
+          );
+          
+          // Keep the member if they have dues payments, remove if not
+          return hasDuesPayments;
+        });
+        
+        // Update members list if it changed
+        if (JSON.stringify(filteredMembers) !== JSON.stringify(membersData)) {
+          await databaseService.saveMembers(filteredMembers);
+          toast.success('회원 목록이 업데이트되었습니다.');
+        }
+        
+        setMembers(filteredMembers);
       } catch (error) {
-        console.error('Error loading members:', error);
-        toast.error('회원 데이터를 불러오는 중 오류가 발생했습니다.');
+        console.error('Error synchronizing members:', error);
+        toast.error('회원 데이터 동기화 중 오류가 발생했습니다.');
       }
     };
     
-    loadMembers();
+    syncMembersWithUserAccounts();
   }, [currentUser]);
+
+  // Helper function to load all years' dues data
+  const loadAllYearsDuesData = async () => {
+    try {
+      // Get data for current year and past 3 years to check for dues payments
+      const currentYear = new Date().getFullYear();
+      let allDues = [];
+      
+      for (let year = currentYear - 3; year <= currentYear; year++) {
+        const yearDues = await databaseService.getDues(year);
+        if (yearDues && yearDues.length > 0) {
+          allDues = [...allDues, ...yearDues];
+        }
+      }
+      
+      return allDues;
+    } catch (error) {
+      console.error('Error loading all dues data:', error);
+      return [];
+    }
+  };
 
   // Load dues and expenses when year changes
   useEffect(() => {
