@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect, ReactNode } from
 import { User } from '../utils/types';
 import { USERS, STORAGE_KEYS } from '../utils/constants';
 import { toast } from 'sonner';
+import { databaseService } from '@/services/databaseService';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -11,6 +12,7 @@ interface AuthContextType {
   logout: () => void;
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  canEdit: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +21,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(USERS);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  
+  // Compute if the current user can edit (admin or treasurer)
+  const canEdit = currentUser?.role === 'admin' || currentUser?.role === 'treasurer';
 
   // 초기 렌더링 시 localStorage에서 사용자 로드
   useEffect(() => {
@@ -68,6 +73,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     toast.info('로그아웃 되었습니다.');
   };
 
+  // Add users to members list when they are created
+  useEffect(() => {
+    const syncUsersToMembers = async () => {
+      for (const user of users) {
+        await databaseService.syncUserToMembers(user);
+      }
+    };
+    
+    if (users.length > 0) {
+      syncUsersToMembers();
+    }
+  }, [users]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -77,6 +95,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         logout,
         users,
         setUsers,
+        canEdit,
       }}
     >
       {children}

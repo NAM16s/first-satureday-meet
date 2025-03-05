@@ -10,14 +10,16 @@ import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/context/AuthContext';
 
 const Members = () => {
+  const { canEdit } = useAuth();
   const membersRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
   // Member data from database
-  const [members, setMembers] = useState(() => databaseService.getMembers());
+  const [members, setMembers] = useState<any[]>([]);
 
   // Dues data from database
   const [duesStatus, setDuesStatus] = useState<any[]>([]);
@@ -33,43 +35,73 @@ const Members = () => {
     month: number;
     amount: number;
   } | null>(null);
+  
+  // Load members data
+  useEffect(() => {
+    const loadMembers = async () => {
+      try {
+        const data = await databaseService.getMembers();
+        setMembers(data);
+      } catch (error) {
+        console.error('Error loading members:', error);
+        toast.error('회원 데이터를 불러오는 중 오류가 발생했습니다.');
+      }
+    };
+    
+    loadMembers();
+  }, []);
 
   // Load dues and expenses when year changes
   useEffect(() => {
-    // Load dues data for the selected year
-    const savedDuesStatus = databaseService.getDues(selectedYear);
-    if (savedDuesStatus && savedDuesStatus.length > 0) {
-      setDuesStatus(savedDuesStatus);
-    } else {
-      // Initialize new dues data for the year
-      const newDuesStatus = members.map(member => ({
-        userId: member.id,
-        year: selectedYear,
-        monthlyDues: Array.from({ length: 12 }, (_, i) => ({
-          month: i + 1,
-          paid: false,
-          amount: 50000
-        })),
-        unpaidAmount: 0
-      }));
-      setDuesStatus(newDuesStatus);
-      databaseService.saveDues(selectedYear, newDuesStatus);
-    }
+    const loadData = async () => {
+      try {
+        // Load dues data for the selected year
+        const savedDuesStatus = await databaseService.getDues(selectedYear);
+        if (savedDuesStatus && savedDuesStatus.length > 0) {
+          setDuesStatus(savedDuesStatus);
+        } else {
+          // Initialize new dues data for the year
+          const newDuesStatus = members.map(member => ({
+            userId: member.id,
+            year: selectedYear,
+            monthlyDues: Array.from({ length: 12 }, (_, i) => ({
+              month: i + 1,
+              paid: false,
+              amount: 50000
+            })),
+            unpaidAmount: 0
+          }));
+          setDuesStatus(newDuesStatus);
+          await databaseService.saveDues(selectedYear, newDuesStatus);
+        }
 
-    // Get member-related expenses (경조사비)
-    const allExpenses = databaseService.getExpenses();
-    const memberEvents = allExpenses.filter(expense => 
-      expense.type === '경조사비' && 
-      new Date(expense.date).getFullYear() === selectedYear
-    );
-    setSpecialEvents(memberEvents);
+        // Get member-related expenses (경조사비)
+        const allExpenses = await databaseService.getExpenses();
+        const memberEvents = allExpenses.filter(expense => 
+          expense.type === '경조사비' && 
+          new Date(expense.date).getFullYear() === selectedYear
+        );
+        setSpecialEvents(memberEvents);
+      } catch (error) {
+        console.error('Error loading dues and events:', error);
+        toast.error('회비 및 경조사비 데이터를 불러오는 중 오류가 발생했습니다.');
+      }
+    };
+    
+    if (members.length > 0) {
+      loadData();
+    }
   }, [selectedYear, members]);
 
   // Save dues data when it changes
   useEffect(() => {
-    if (duesStatus.length > 0) {
-      databaseService.saveDues(selectedYear, duesStatus);
-    }
+    const saveDuesData = async () => {
+      if (duesStatus.length > 0) {
+        await databaseService.saveDues(selectedYear, duesStatus);
+      }
+    };
+    
+    saveDuesData();
   }, [duesStatus, selectedYear]);
 
   const handleExportImage = () => {
@@ -78,6 +110,11 @@ const Members = () => {
   };
 
   const handleDuesClick = (userId: string, month: number) => {
+    if (!canEdit) {
+      toast.info('회비 정보는 회계 또는 관리자만 수정할 수 있습니다.');
+      return;
+    }
+    
     const member = members.find(m => m.id === userId);
     const userDues = duesStatus.find(dues => dues.userId === userId);
     const monthDue = userDues?.monthlyDues.find(due => due.month === month);
@@ -92,7 +129,7 @@ const Members = () => {
     setDuesDialogOpen(true);
   };
 
-  const handleDuesSave = () => {
+  const handleDuesSave = async () => {
     if (!activeDuesData) return;
     
     const { userId, month, amount } = activeDuesData;
@@ -124,8 +161,9 @@ const Members = () => {
     
     if (isPaid && !previouslyPaid) {
       // Add new income entry
-      const date = new Date();
-      date.setFullYear(selectedYear, month - 1, 15); // Default to middle of month
+      const today = new Date();
+      const date = new Date(today);
+      date.setFullYear(selectedYear, month - 1, today.getDate());
       
       const newIncome = {
         date: date.toISOString().split('T')[0],
@@ -138,12 +176,12 @@ const Members = () => {
         userId: userId
       };
 
-      databaseService.addIncome(newIncome);
+      await databaseService.addIncome(newIncome);
       toast.success(`${month}월 회비가 수입내역에 추가되었습니다.`);
     } 
     else if (!isPaid && previouslyPaid) {
       // Remove income entry
-      const incomes = databaseService.getIncomes();
+      const incomes = await databaseService.getIncomes();
       const duesIncome = incomes.find(income => 
         income.type === '회비' && 
         income.year === selectedYear && 
@@ -152,13 +190,13 @@ const Members = () => {
       );
       
       if (duesIncome) {
-        databaseService.deleteIncome(duesIncome.id);
+        await databaseService.deleteIncome(duesIncome.id);
         toast.info(`${month}월 회비 납부가 취소되었습니다.`);
       }
     } 
     else if (isPaid && previouslyPaid && amount !== monthDue?.amount) {
       // Update income amount
-      const incomes = databaseService.getIncomes();
+      const incomes = await databaseService.getIncomes();
       const duesIncome = incomes.find(income => 
         income.type === '회비' && 
         income.year === selectedYear && 
@@ -167,7 +205,7 @@ const Members = () => {
       );
       
       if (duesIncome) {
-        databaseService.updateIncome(duesIncome.id, { amount });
+        await databaseService.updateIncome(duesIncome.id, { amount });
         toast.success(`${month}월 회비 금액이 수정되었습니다.`);
       }
     }
@@ -177,6 +215,11 @@ const Members = () => {
   };
 
   const handleUnpaidChange = (userId: string, value: number) => {
+    if (!canEdit) {
+      toast.info('미납액은 회계 또는 관리자만 수정할 수 있습니다.');
+      return;
+    }
+    
     setDuesStatus(prev => 
       prev.map(user => 
         user.userId === userId 
@@ -207,7 +250,7 @@ const Members = () => {
 
       <div id="members-content" ref={membersRef} className="space-y-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="flex items-center space-x-4">
               <CardTitle>회원 회비 납부 현황</CardTitle>
               <div className="flex items-center space-x-2">
@@ -226,7 +269,7 @@ const Members = () => {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-muted">
-                    <th className="border p-2 text-left">회원명</th>
+                    <th className="border p-2 text-left sticky left-0 bg-muted z-10 min-w-[100px]">회원명</th>
                     {MONTH_NAMES.map((month, index) => (
                       <th key={index} className="border p-2 text-center">{month}</th>
                     ))}
@@ -238,7 +281,7 @@ const Members = () => {
                     const userDues = duesStatus.find(dues => dues.userId === member.id);
                     return (
                       <tr key={member.id} className="border-b">
-                        <td className="border p-2">{member.name}</td>
+                        <td className="border p-2 sticky left-0 bg-white z-10">{member.name}</td>
                         {MONTH_NAMES.map((_, index) => {
                           const month = index + 1;
                           const monthDue = userDues?.monthlyDues.find(due => due.month === month);
@@ -263,6 +306,7 @@ const Members = () => {
                             className="w-24 text-right mx-auto"
                             step={1000}
                             min={0}
+                            readOnly={!canEdit}
                           />
                         </td>
                       </tr>

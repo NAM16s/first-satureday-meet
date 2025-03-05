@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +13,11 @@ import { useAuth } from '@/context/AuthContext';
 import { User as UserType, Role } from '@/utils/types';
 import { exportAsImage } from '@/utils/exportUtils';
 import { v4 as uuidv4 } from 'uuid';
+import { databaseService } from '@/services/databaseService';
 
 const Settings = () => {
   const settingsRef = useRef<HTMLDivElement>(null);
-  const { users, setUsers } = useAuth();
+  const { users, setUsers, canEdit } = useAuth();
   const [newUserOpen, setNewUserOpen] = useState(false);
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
@@ -27,20 +29,13 @@ const Settings = () => {
     role: 'member' as Role,
   });
 
-  const [backups, setBackups] = useState([
-    { 
-      id: '1', 
-      date: '2023-12-25 14:30:00', 
-      name: '백업_20231225_143000',
-      data: { users: [] } // Add data property with empty users array
-    },
-    { 
-      id: '2', 
-      date: '2023-12-20 09:15:22', 
-      name: '백업_20231220_091522',
-      data: { users: [] } // Add data property with empty users array
-    },
-  ]);
+  const [backups, setBackups] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Load backups from localStorage
+    const loadedBackups = databaseService.getBackups();
+    setBackups(loadedBackups);
+  }, []);
 
   const handleExportImage = () => {
     exportAsImage(settingsRef.current!.id, '설정');
@@ -57,7 +52,7 @@ const Settings = () => {
     }
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newUser.id || !newUser.name || !newUser.password || !newUser.role) {
@@ -78,7 +73,12 @@ const Settings = () => {
       password: newUser.password.trim(),
     };
 
+    // Add to users list
     setUsers(prev => [...prev, userToAdd]);
+    
+    // Sync to members list
+    await databaseService.syncUserToMembers(userToAdd);
+    
     setNewUserOpen(false);
     setNewUser({
       id: '',
@@ -90,12 +90,15 @@ const Settings = () => {
     toast.success('새 사용자가 추가되었습니다.');
   };
 
-  const handleEditUser = () => {
+  const handleEditUser = async () => {
     if (!editingUser) return;
     
     setUsers(prev => 
       prev.map(user => user.id === editingUser.id ? editingUser : user)
     );
+    
+    // Update in members list if name changed
+    await databaseService.syncUserToMembers(editingUser);
     
     setEditUserOpen(false);
     setEditingUser(null);
@@ -112,56 +115,58 @@ const Settings = () => {
     setEditUserOpen(true);
   };
 
-  const handleCreateBackup = () => {
-    const now = new Date();
-    const dateStr = now.toISOString().replace(/[:.]/g, '').substring(0, 15);
-    const backupName = `백업_${dateStr}`;
-    
-    // 모든 데이터를 수집하여 백업
-    const backupData = {
-      users,
-      // 여기에 다른 데이터도 포함
-    };
-    
-    const backupId = uuidv4();
-    const backup = {
-      id: backupId,
-      date: now.toLocaleString(),
-      name: backupName,
-      data: backupData  // Ensure data property is present
-    };
-    
-    // localStorage에 백업 저장
-    const backupsData = [...backups, backup];
-    localStorage.setItem('moim_backups', JSON.stringify(backupsData));
-    
-    setBackups(backupsData);
-    toast.success('백업이 생성되었습니다.');
+  const handleCreateBackup = async () => {
+    try {
+      const backup = await databaseService.createBackup();
+      if (backup) {
+        setBackups(prev => [backup, ...prev]);
+        toast.success('백업이 생성되었습니다.');
+      } else {
+        toast.error('백업 생성 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      toast.error('백업 생성 중 오류가 발생했습니다.');
+    }
   };
 
-  const handleRestoreBackup = (id: string) => {
-    const backup = backups.find(b => b.id === id);
-    if (!backup) {
-      toast.error('백업을 찾을 수 없습니다.');
-      return;
+  const handleRestoreBackup = async (id: string) => {
+    try {
+      const success = await databaseService.restoreBackup(id);
+      if (success) {
+        toast.success('백업이 복원되었습니다.');
+        // Reload the page to reflect changes
+        window.location.reload();
+      } else {
+        toast.error('백업 복원 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Error restoring backup:', error);
+      toast.error('백업 복원 중 오류가 발생했습니다.');
     }
-    
-    // 백업에서 데이터 복원
-    // 실제 구현에서는 백업 데이터에서 users, transactions 등을 복원
-    setUsers(backup.data?.users || []);
-    
-    toast.success('백업이 복원되었습니다.');
   };
 
   const handleDeleteBackup = (id: string) => {
-    setBackups(prev => prev.filter(backup => backup.id !== id));
-    
-    // localStorage에서 백업 목록 업데이트
-    const updatedBackups = backups.filter(backup => backup.id !== id);
-    localStorage.setItem('moim_backups', JSON.stringify(updatedBackups));
-    
-    toast.success('백업이 삭제되었습니다.');
+    try {
+      databaseService.deleteBackup(id);
+      setBackups(prev => prev.filter(backup => backup.id !== id));
+      toast.success('백업이 삭제되었습니다.');
+    } catch (error) {
+      console.error('Error deleting backup:', error);
+      toast.error('백업 삭제 중 오류가 발생했습니다.');
+    }
   };
+
+  if (!canEdit) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <h2 className="text-2xl font-bold mb-4">설정 접근 제한</h2>
+        <p className="text-muted-foreground">
+          설정 페이지는 관리자 또는 회계 권한이 있는 사용자만 접근할 수 있습니다.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

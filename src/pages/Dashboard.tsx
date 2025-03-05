@@ -2,18 +2,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { MONTH_NAMES } from '@/utils/constants';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
+import { useAuth } from '@/context/AuthContext';
 
 const Dashboard = () => {
+  const { canEdit } = useAuth();
   const dashboardRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [isEditingCarryover, setIsEditingCarryover] = useState(false);
   
   // State for real data
   const [carryoverAmount, setCarryoverAmount] = useState(0);
@@ -21,30 +21,44 @@ const Dashboard = () => {
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [recentIncomes, setRecentIncomes] = useState<any[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
+  const [previousYearBalance, setPreviousYearBalance] = useState(0);
 
   // Load data when year changes
   useEffect(() => {
-    // Get carryover amount
-    const savedCarryover = databaseService.getCarryoverAmount(selectedYear);
-    setCarryoverAmount(savedCarryover);
+    const loadData = async () => {
+      try {
+        // Calculate previous year's final balance
+        const prevYearBalance = await databaseService.calculatePreviousYearBalance(selectedYear);
+        setPreviousYearBalance(prevYearBalance);
+        
+        // Get carryover amount
+        const savedCarryover = await databaseService.getCarryoverAmount(selectedYear);
+        setCarryoverAmount(savedCarryover);
+        
+        // Calculate current balance
+        const balance = await databaseService.calculateCurrentBalance(selectedYear);
+        setCurrentBalance(balance);
+        
+        // Get monthly data
+        const monthly = await databaseService.getMonthlyFinanceData(selectedYear);
+        setMonthlyData(monthly);
+        
+        // Get recent incomes
+        const allIncomes = await databaseService.getIncomes();
+        const filteredIncomes = allIncomes.slice(0, 5); // Get latest 5 incomes
+        setRecentIncomes(filteredIncomes);
+        
+        // Get recent expenses
+        const allExpenses = await databaseService.getExpenses();
+        const filteredExpenses = allExpenses.slice(0, 5); // Get latest 5 expenses
+        setRecentExpenses(filteredExpenses);
+      } catch (error) {
+        console.error("Error loading dashboard data:", error);
+        toast.error("데이터를 불러오는 중 오류가 발생했습니다.");
+      }
+    };
     
-    // Calculate current balance
-    const balance = databaseService.calculateCurrentBalance(selectedYear);
-    setCurrentBalance(balance);
-    
-    // Get monthly data
-    const monthly = databaseService.getMonthlyFinanceData(selectedYear);
-    setMonthlyData(monthly);
-    
-    // Get recent incomes
-    const allIncomes = databaseService.getIncomes();
-    const filteredIncomes = allIncomes.slice(0, 5); // Get latest 5 incomes
-    setRecentIncomes(filteredIncomes);
-    
-    // Get recent expenses
-    const allExpenses = databaseService.getExpenses();
-    const filteredExpenses = allExpenses.slice(0, 5); // Get latest 5 expenses
-    setRecentExpenses(filteredExpenses);
+    loadData();
   }, [selectedYear]);
 
   const handlePreviousYear = () => {
@@ -60,15 +74,21 @@ const Dashboard = () => {
     toast.success('이미지가 다운로드되었습니다.');
   };
 
-  const handleCarryoverSave = () => {
-    databaseService.saveCarryoverAmount(selectedYear, carryoverAmount);
-    setIsEditingCarryover(false);
-    toast.success('이월 금액이 저장되었습니다.');
-    
-    // Update current balance after saving carryover
-    const balance = databaseService.calculateCurrentBalance(selectedYear);
-    setCurrentBalance(balance);
-  };
+  // Auto-update carryover from previous year's final balance
+  useEffect(() => {
+    if (previousYearBalance !== 0) {
+      const updateCarryover = async () => {
+        await databaseService.saveCarryoverAmount(selectedYear, previousYearBalance);
+        setCarryoverAmount(previousYearBalance);
+        
+        // Update current balance after saving carryover
+        const balance = await databaseService.calculateCurrentBalance(selectedYear);
+        setCurrentBalance(balance);
+      };
+      
+      updateCarryover();
+    }
+  }, [previousYearBalance, selectedYear]);
 
   return (
     <div className="space-y-6">
@@ -94,26 +114,10 @@ const Dashboard = () => {
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex justify-between items-center">
-                <span>이전년도 이월 금액</span>
-                {isEditingCarryover ? (
-                  <Button size="sm" onClick={handleCarryoverSave}>저장</Button>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => setIsEditingCarryover(true)}>수정</Button>
-                )}
-              </CardTitle>
+              <CardTitle className="text-lg">이전년도 이월 금액</CardTitle>
             </CardHeader>
             <CardContent>
-              {isEditingCarryover ? (
-                <Input
-                  type="number"
-                  value={carryoverAmount}
-                  onChange={(e) => setCarryoverAmount(Number(e.target.value))}
-                  className="text-xl font-bold"
-                />
-              ) : (
-                <p className="text-2xl font-bold">{carryoverAmount.toLocaleString()}원</p>
-              )}
+              <p className="text-2xl font-bold">{carryoverAmount.toLocaleString()}원</p>
             </CardContent>
           </Card>
           <Card>
