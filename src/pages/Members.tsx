@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Download, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 
 const Members = () => {
-  const { canEdit } = useAuth();
+  const { canEdit, user } = useAuth();
   const membersRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -40,8 +40,20 @@ const Members = () => {
   useEffect(() => {
     const loadMembers = async () => {
       try {
-        const data = await databaseService.getMembers();
-        setMembers(data);
+        let data = await databaseService.getMembers();
+        
+        // Filter out admin accounts by checking if the member is in the user list but not admin
+        if (user && user.role === 'admin') {
+          // If the current user is admin, show all members
+          setMembers(data);
+        } else {
+          // For non-admin users, filter out admin accounts
+          // We'll need to get the users to check roles
+          const users = JSON.parse(localStorage.getItem('moim_users') || '[]');
+          const adminIds = users.filter((u: any) => u.role === 'admin').map((u: any) => u.id);
+          data = data.filter(member => !adminIds.includes(member.id));
+          setMembers(data);
+        }
       } catch (error) {
         console.error('Error loading members:', error);
         toast.error('회원 데이터를 불러오는 중 오류가 발생했습니다.');
@@ -49,7 +61,7 @@ const Members = () => {
     };
     
     loadMembers();
-  }, []);
+  }, [user]);
 
   // Load dues and expenses when year changes
   useEffect(() => {
@@ -238,6 +250,24 @@ const Members = () => {
     setSelectedYear(prev => prev + 1);
   };
 
+  // Calculate monthly dues totals
+  const calculateMonthlyTotals = () => {
+    const monthlyTotals = Array(12).fill(0);
+    
+    duesStatus.forEach(userDues => {
+      userDues.monthlyDues.forEach((due: any) => {
+        if (due.paid) {
+          monthlyTotals[due.month - 1] += due.amount;
+        }
+      });
+    });
+    
+    return monthlyTotals;
+  };
+
+  const monthlyTotals = calculateMonthlyTotals();
+  const totalDues = monthlyTotals.reduce((sum, amount) => sum + amount, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -313,6 +343,19 @@ const Members = () => {
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="bg-muted font-semibold">
+                    <td className="border p-2 sticky left-0 bg-muted z-10">월별 합계</td>
+                    {monthlyTotals.map((total, index) => (
+                      <td key={index} className="border p-2 text-center text-green-600">
+                        {total.toLocaleString()}원
+                      </td>
+                    ))}
+                    <td className="border p-2 text-center text-green-600">
+                      {totalDues.toLocaleString()}원
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </CardContent>

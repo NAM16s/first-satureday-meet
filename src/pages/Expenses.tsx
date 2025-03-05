@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PlusCircle, Download, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -11,13 +11,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useAuth } from '@/context/AuthContext';
 
 const Expenses = () => {
+  const { canEdit } = useAuth();
   const expensesRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [newExpenseOpen, setNewExpenseOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
+  
+  // Delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+
   const [newExpense, setNewExpense] = useState({
+    id: '',
     date: '',
     name: '',
     type: '',
@@ -32,7 +43,7 @@ const Expenses = () => {
   // Load expenses when component mounts
   useEffect(() => {
     loadExpenses();
-  }, [selectedYear]);
+  }, []);
 
   const loadExpenses = async () => {
     setLoading(true);
@@ -72,7 +83,62 @@ const Expenses = () => {
     setNewExpense(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddExpense = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setNewExpense({ id: '', date: '', name: '', type: '', amount: '', description: '' });
+    setIsEditing(false);
+    setSelectedExpenseId(null);
+  };
+
+  const handleOpenEditDialog = (expense: any) => {
+    if (!canEdit) {
+      toast.info('지출 정보는 회계 또는 관리자만 수정할 수 있습니다.');
+      return;
+    }
+    
+    setIsEditing(true);
+    setSelectedExpenseId(expense.id);
+    
+    setNewExpense({
+      id: expense.id,
+      date: expense.date,
+      name: expense.name,
+      type: expense.type,
+      amount: expense.amount.toString(),
+      description: expense.description || ''
+    });
+    
+    setNewExpenseOpen(true);
+  };
+
+  const handleOpenDeleteDialog = (expenseId: string) => {
+    if (!canEdit) {
+      toast.info('지출 정보는 회계 또는 관리자만 삭제할 수 있습니다.');
+      return;
+    }
+    
+    setExpenseToDelete(expenseId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+
+    try {
+      await databaseService.deleteExpense(expenseToDelete);
+      
+      // Update the local state
+      setExpenses(prevExpenses => prevExpenses.filter(expense => expense.id !== expenseToDelete));
+      
+      setDeleteDialogOpen(false);
+      setExpenseToDelete(null);
+      toast.success('지출이 삭제되었습니다.');
+    } catch (error) {
+      console.error("Failed to delete expense:", error);
+      toast.error("지출 삭제에 실패했습니다.");
+    }
+  };
+
+  const handleSubmitExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newExpense.date || !newExpense.name || !newExpense.type || !newExpense.amount) {
       toast.error('필수 항목을 모두 입력해주세요.');
@@ -84,23 +150,51 @@ const Expenses = () => {
     const month = date.getMonth() + 1;
     
     try {
-      const newExpenseItem = await databaseService.addExpense({
-        date: newExpense.date,
-        name: newExpense.name,
-        type: newExpense.type,
-        amount: Number(newExpense.amount),
-        description: newExpense.description,
-        year,
-        month
-      });
+      if (isEditing && selectedExpenseId) {
+        // Updating existing expense
+        const updatedData = {
+          date: newExpense.date,
+          name: newExpense.name,
+          type: newExpense.type,
+          amount: Number(newExpense.amount),
+          description: newExpense.description,
+          year,
+          month
+        };
+        
+        await databaseService.updateExpense(selectedExpenseId, updatedData);
+        
+        // Update local state
+        setExpenses(prevExpenses => 
+          prevExpenses.map(expense => 
+            expense.id === selectedExpenseId 
+              ? { ...expense, ...updatedData, id: selectedExpenseId }
+              : expense
+          )
+        );
+        
+        toast.success('지출이 수정되었습니다.');
+      } else {
+        // Adding new expense
+        const newExpenseItem = await databaseService.addExpense({
+          date: newExpense.date,
+          name: newExpense.name,
+          type: newExpense.type,
+          amount: Number(newExpense.amount),
+          description: newExpense.description,
+          year,
+          month
+        });
 
-      setExpenses(prev => [newExpenseItem, ...prev]);
+        setExpenses(prev => [newExpenseItem, ...prev]);
+        toast.success('새로운 지출이 추가되었습니다.');
+      }
+
       setNewExpenseOpen(false);
-      setNewExpense({ date: '', name: '', type: '', amount: '', description: '' });
-      toast.success('새로운 지출이 추가되었습니다.');
+      resetForm();
     } catch (error) {
-      console.error("Failed to add expense:", error);
-      toast.error("지출 추가에 실패했습니다.");
+      console.error("Failed to process expense:", error);
+      toast.error(isEditing ? "지출 수정에 실패했습니다." : "지출 추가에 실패했습니다.");
     }
   };
 
@@ -113,18 +207,21 @@ const Expenses = () => {
             <Download className="mr-2 h-4 w-4" />
             이미지로 내보내기
           </Button>
-          <Dialog open={newExpenseOpen} onOpenChange={setNewExpenseOpen}>
+          <Dialog open={newExpenseOpen} onOpenChange={(open) => {
+            setNewExpenseOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
-              <Button>
+              <Button disabled={!canEdit}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 새로운 지출
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>새로운 지출 추가</DialogTitle>
+                <DialogTitle>{isEditing ? '지출 수정' : '새로운 지출 추가'}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleAddExpense} className="space-y-4">
+              <form onSubmit={handleSubmitExpense} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date">날짜</Label>
@@ -186,10 +283,13 @@ const Expenses = () => {
                   />
                 </div>
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setNewExpenseOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setNewExpenseOpen(false);
+                    resetForm();
+                  }}>
                     취소
                   </Button>
-                  <Button type="submit">추가</Button>
+                  <Button type="submit">{isEditing ? '수정' : '추가'}</Button>
                 </div>
               </form>
             </DialogContent>
@@ -228,22 +328,34 @@ const Expenses = () => {
                       <th className="p-2 text-left">항목</th>
                       <th className="p-2 text-right">금액</th>
                       <th className="p-2 text-left">설명</th>
+                      <th className="p-2 text-center">관리</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredExpenses.length > 0 ? (
                       filteredExpenses.map(expense => (
-                        <tr key={expense.id} className="border-b">
+                        <tr key={expense.id} className="border-b hover:bg-muted/50 cursor-pointer">
                           <td className="p-2">{expense.date}</td>
                           <td className="p-2">{expense.name}</td>
                           <td className="p-2">{expense.type}</td>
                           <td className="p-2 text-right">{expense.amount.toLocaleString()}원</td>
                           <td className="p-2">{expense.description}</td>
+                          <td className="p-2 flex justify-center space-x-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(expense)}
+                              disabled={!canEdit}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700"
+                              onClick={() => handleOpenDeleteDialog(expense.id)}
+                              disabled={!canEdit}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                        <td colSpan={6} className="p-4 text-center text-muted-foreground">
                           {selectedYear}년도의 지출 내역이 없습니다.
                         </td>
                       </tr>
@@ -255,6 +367,25 @@ const Expenses = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>지출 삭제 확인</AlertDialogTitle>
+            <AlertDialogDescription>
+              이 지출 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDialogOpen(false);
+              setExpenseToDelete(null);
+            }}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteExpense} className="bg-red-500 hover:bg-red-700">삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
