@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 
 const Members = () => {
-  const { canEdit, user } = useAuth();
+  const { canEdit, currentUser } = useAuth();
   const membersRef = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -43,7 +42,7 @@ const Members = () => {
         let data = await databaseService.getMembers();
         
         // Filter out admin accounts by checking if the member is in the user list but not admin
-        if (user && user.role === 'admin') {
+        if (currentUser && currentUser.role === 'admin') {
           // If the current user is admin, show all members
           setMembers(data);
         } else {
@@ -61,7 +60,7 @@ const Members = () => {
     };
     
     loadMembers();
-  }, [user]);
+  }, [currentUser]);
 
   // Load dues and expenses when year changes
   useEffect(() => {
