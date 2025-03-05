@@ -90,6 +90,22 @@ const Dashboard = () => {
     }
   }, [previousYearBalance, selectedYear]);
 
+  // Calculate cumulative balance for each month
+  const calculateCumulativeBalance = (data: any[]) => {
+    let runningTotal = carryoverAmount;
+    return data.map(month => {
+      const monthlyBalance = month.income - month.expense;
+      runningTotal += monthlyBalance;
+      return {
+        ...month,
+        cumulativeBalance: runningTotal
+      };
+    });
+  };
+
+  // Process monthly data to include cumulative balance
+  const processedMonthlyData = calculateCumulativeBalance(monthlyData);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -143,15 +159,17 @@ const Dashboard = () => {
                     <th className="border p-2 text-right">수입</th>
                     <th className="border p-2 text-right">지출</th>
                     <th className="border p-2 text-right">잔액</th>
+                    <th className="border p-2 text-right">총잔액</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {monthlyData.map((data, index) => (
+                  {processedMonthlyData.map((data, index) => (
                     <tr key={index} className="border-b">
                       <td className="border p-2">{MONTH_NAMES[data.month - 1]}</td>
                       <td className="border p-2 text-right text-green-600">{data.income.toLocaleString()}원</td>
                       <td className="border p-2 text-right text-red-600">{data.expense.toLocaleString()}원</td>
                       <td className="border p-2 text-right">{(data.income - data.expense).toLocaleString()}원</td>
+                      <td className="border p-2 text-right font-medium">{data.cumulativeBalance.toLocaleString()}원</td>
                     </tr>
                   ))}
                 </tbody>
@@ -166,6 +184,11 @@ const Dashboard = () => {
                     </td>
                     <td className="border p-2 text-right">
                       {monthlyData.reduce((sum, data) => sum + (data.income - data.expense), 0).toLocaleString()}원
+                    </td>
+                    <td className="border p-2 text-right">
+                      {processedMonthlyData.length > 0 
+                        ? processedMonthlyData[processedMonthlyData.length - 1].cumulativeBalance.toLocaleString() 
+                        : carryoverAmount.toLocaleString()}원
                     </td>
                   </tr>
                 </tfoot>
