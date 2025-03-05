@@ -26,15 +26,35 @@ const Income = () => {
   });
 
   // 수입 데이터 로드
-  const [incomes, setIncomes] = useState(() => databaseService.getIncomes());
+  const [incomes, setIncomes] = useState<any[]>([]);
   
   // 회원 데이터 로드
-  const [members, setMembers] = useState(() => databaseService.getMembers());
+  const [members, setMembers] = useState<any[]>([]);
 
-  // 데이터 변경시 저장
+  // Loading states
+  const [loading, setLoading] = useState(true);
+
+  // Load data
   useEffect(() => {
-    databaseService.saveIncomes(incomes);
-  }, [incomes]);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [incomesData, membersData] = await Promise.all([
+          databaseService.getIncomes(),
+          databaseService.getMembers()
+        ]);
+        setIncomes(incomesData);
+        setMembers(membersData);
+      } catch (error) {
+        console.error("Failed to load data:", error);
+        toast.error("데이터를 불러오는데 실패했습니다.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
 
   // 선택한 연도의 수입만 필터링
   const filteredIncomes = incomes.filter(income => {
@@ -61,7 +81,7 @@ const Income = () => {
     setNewIncome(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddIncome = (e: React.FormEvent) => {
+  const handleAddIncome = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newIncome.date || !newIncome.member || !newIncome.type || !newIncome.amount) {
       toast.error('필수 항목을 모두 입력해주세요.');
@@ -72,23 +92,32 @@ const Income = () => {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     
-    const memberName = members.find(m => m.id === newIncome.member)?.name || '';
+    const memberObj = members.find(m => m.id === newIncome.member);
+    if (!memberObj) {
+      toast.error('유효하지 않은 회원입니다.');
+      return;
+    }
     
-    const newIncomeItem = databaseService.addIncome({
-      date: newIncome.date,
-      name: memberName,
-      type: newIncome.type,
-      amount: Number(newIncome.amount),
-      description: newIncome.description,
-      year,
-      month,
-      userId: newIncome.member
-    });
+    try {
+      const newIncomeItem = await databaseService.addIncome({
+        date: newIncome.date,
+        name: memberObj.name,
+        type: newIncome.type,
+        amount: Number(newIncome.amount),
+        description: newIncome.description,
+        year,
+        month,
+        userId: newIncome.member
+      });
 
-    setIncomes(prev => [newIncomeItem, ...prev]);
-    setNewIncomeOpen(false);
-    setNewIncome({ date: '', member: '', type: '', amount: '', description: '' });
-    toast.success('새로운 수입이 추가되었습니다.');
+      setIncomes(prev => [newIncomeItem, ...prev]);
+      setNewIncomeOpen(false);
+      setNewIncome({ date: '', member: '', type: '', amount: '', description: '' });
+      toast.success('새로운 수입이 추가되었습니다.');
+    } catch (error) {
+      console.error("Failed to add income:", error);
+      toast.error("수입 추가에 실패했습니다.");
+    }
   };
 
   return (
@@ -208,38 +237,42 @@ const Income = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="p-2 text-left">날짜</th>
-                    <th className="p-2 text-left">회원명</th>
-                    <th className="p-2 text-left">항목</th>
-                    <th className="p-2 text-right">금액</th>
-                    <th className="p-2 text-left">설명</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredIncomes.length > 0 ? (
-                    filteredIncomes.map(income => (
-                      <tr key={income.id} className="border-b">
-                        <td className="p-2">{income.date}</td>
-                        <td className="p-2">{income.name}</td>
-                        <td className="p-2">{income.type}</td>
-                        <td className="p-2 text-right">{income.amount.toLocaleString()}원</td>
-                        <td className="p-2">{income.description}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="p-4 text-center text-muted-foreground">
-                        {selectedYear}년도의 수입 내역이 없습니다.
-                      </td>
+            {loading ? (
+              <div className="p-4 text-center">데이터를 불러오는 중...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-muted">
+                      <th className="p-2 text-left">날짜</th>
+                      <th className="p-2 text-left">회원명</th>
+                      <th className="p-2 text-left">항목</th>
+                      <th className="p-2 text-right">금액</th>
+                      <th className="p-2 text-left">설명</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredIncomes.length > 0 ? (
+                      filteredIncomes.map(income => (
+                        <tr key={income.id} className="border-b">
+                          <td className="p-2">{income.date}</td>
+                          <td className="p-2">{income.name}</td>
+                          <td className="p-2">{income.type}</td>
+                          <td className="p-2 text-right">{income.amount.toLocaleString()}원</td>
+                          <td className="p-2">{income.description}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                          {selectedYear}년도의 수입 내역이 없습니다.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

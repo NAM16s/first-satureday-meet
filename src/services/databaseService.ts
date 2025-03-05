@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -96,7 +95,6 @@ const saveMembers = async (members: any[]) => {
   }
 };
 
-// Add a function to sync a user to members list
 const syncUserToMembers = async (user: any) => {
   try {
     const { data: existingMember, error: checkError } = await supabase
@@ -181,7 +179,7 @@ const getIncomes = async () => {
     if (data && data.length > 0) {
       return data;
     } else {
-      // Fallback to localStorage
+      // Fallback to localStorage if no data in Supabase yet
       return getLocalData(STORAGE_KEYS.INCOMES, []);
     }
   } catch (error) {
@@ -311,7 +309,7 @@ const getExpenses = async () => {
     if (data && data.length > 0) {
       return data;
     } else {
-      // Fallback to localStorage
+      // Fallback to localStorage if no data in Supabase yet
       return getLocalData(STORAGE_KEYS.EXPENSES, []);
     }
   } catch (error) {
@@ -488,7 +486,10 @@ const getSettings = async () => {
     if (error) throw error;
     
     if (data) {
-      return data;
+      // Convert from database format to app format
+      return {
+        carryoverAmounts: data.carryover_amounts || {}
+      };
     } else {
       // Fallback to localStorage
       return getLocalData(STORAGE_KEYS.SETTINGS, {
@@ -506,6 +507,11 @@ const getSettings = async () => {
 
 const saveSettings = async (settings: any) => {
   try {
+    // Convert from app format to database format
+    const dbSettings = {
+      carryover_amounts: settings.carryoverAmounts
+    };
+    
     // First check if settings exist
     const { data, error: checkError } = await supabase
       .from(tables.settings)
@@ -518,7 +524,7 @@ const saveSettings = async (settings: any) => {
       // Update existing settings
       const { error: updateError } = await supabase
         .from(tables.settings)
-        .update(settings)
+        .update(dbSettings)
         .eq('id', data.id);
       
       if (updateError) throw updateError;
@@ -526,7 +532,7 @@ const saveSettings = async (settings: any) => {
       // Insert new settings
       const { error: insertError } = await supabase
         .from(tables.settings)
-        .insert([{ ...settings, id: uuidv4() }]);
+        .insert([{ ...dbSettings, id: uuidv4() }]);
       
       if (insertError) throw insertError;
     }

@@ -27,15 +27,24 @@ const Expenses = () => {
 
   // Expenses from database
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Load expenses when component mounts
   useEffect(() => {
     loadExpenses();
   }, [selectedYear]);
 
-  const loadExpenses = () => {
-    const allExpenses = databaseService.getExpenses();
-    setExpenses(allExpenses);
+  const loadExpenses = async () => {
+    setLoading(true);
+    try {
+      const expensesData = await databaseService.getExpenses();
+      setExpenses(expensesData);
+    } catch (error) {
+      console.error("Failed to load expenses:", error);
+      toast.error("지출 내역을 불러오는데 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Filtered expenses for the selected year
@@ -63,7 +72,7 @@ const Expenses = () => {
     setNewExpense(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddExpense = (e: React.FormEvent) => {
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newExpense.date || !newExpense.name || !newExpense.type || !newExpense.amount) {
       toast.error('필수 항목을 모두 입력해주세요.');
@@ -74,20 +83,25 @@ const Expenses = () => {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     
-    const newExpenseItem = databaseService.addExpense({
-      date: newExpense.date,
-      name: newExpense.name,
-      type: newExpense.type,
-      amount: Number(newExpense.amount),
-      description: newExpense.description,
-      year,
-      month
-    });
+    try {
+      const newExpenseItem = await databaseService.addExpense({
+        date: newExpense.date,
+        name: newExpense.name,
+        type: newExpense.type,
+        amount: Number(newExpense.amount),
+        description: newExpense.description,
+        year,
+        month
+      });
 
-    setExpenses(prev => [newExpenseItem, ...prev]);
-    setNewExpenseOpen(false);
-    setNewExpense({ date: '', name: '', type: '', amount: '', description: '' });
-    toast.success('새로운 지출이 추가되었습니다.');
+      setExpenses(prev => [newExpenseItem, ...prev]);
+      setNewExpenseOpen(false);
+      setNewExpense({ date: '', name: '', type: '', amount: '', description: '' });
+      toast.success('새로운 지출이 추가되었습니다.');
+    } catch (error) {
+      console.error("Failed to add expense:", error);
+      toast.error("지출 추가에 실패했습니다.");
+    }
   };
 
   return (
@@ -202,38 +216,42 @@ const Expenses = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="p-2 text-left">날짜</th>
-                    <th className="p-2 text-left">내용</th>
-                    <th className="p-2 text-left">항목</th>
-                    <th className="p-2 text-right">금액</th>
-                    <th className="p-2 text-left">설명</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredExpenses.length > 0 ? (
-                    filteredExpenses.map(expense => (
-                      <tr key={expense.id} className="border-b">
-                        <td className="p-2">{expense.date}</td>
-                        <td className="p-2">{expense.name}</td>
-                        <td className="p-2">{expense.type}</td>
-                        <td className="p-2 text-right">{expense.amount.toLocaleString()}원</td>
-                        <td className="p-2">{expense.description}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="p-4 text-center text-muted-foreground">
-                        {selectedYear}년도의 지출 내역이 없습니다.
-                      </td>
+            {loading ? (
+              <div className="p-4 text-center">데이터를 불러오는 중...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-muted">
+                      <th className="p-2 text-left">날짜</th>
+                      <th className="p-2 text-left">내용</th>
+                      <th className="p-2 text-left">항목</th>
+                      <th className="p-2 text-right">금액</th>
+                      <th className="p-2 text-left">설명</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredExpenses.length > 0 ? (
+                      filteredExpenses.map(expense => (
+                        <tr key={expense.id} className="border-b">
+                          <td className="p-2">{expense.date}</td>
+                          <td className="p-2">{expense.name}</td>
+                          <td className="p-2">{expense.type}</td>
+                          <td className="p-2 text-right">{expense.amount.toLocaleString()}원</td>
+                          <td className="p-2">{expense.description}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                          {selectedYear}년도의 지출 내역이 없습니다.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
