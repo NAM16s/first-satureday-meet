@@ -21,6 +21,8 @@ const Members = () => {
   const [members, setMembers] = useState<any[]>([]);
   const [duesStatus, setDuesStatus] = useState<DuesData[]>([]);
   const [specialEvents, setSpecialEvents] = useState<EventData[]>([]);
+  
+  const defaultDuesAmount = 50000;
 
   const [duesDialogOpen, setDuesDialogOpen] = useState(false);
   const [activeDuesData, setActiveDuesData] = useState<{
@@ -113,7 +115,7 @@ const Members = () => {
             monthlyDues: Array.from({ length: 12 }, (_, i) => ({
               month: i + 1,
               status: 'unpaid' as 'unpaid',
-              amount: 50000
+              amount: defaultDuesAmount
             })),
             unpaidAmount: 0
           }));
@@ -174,7 +176,7 @@ const Members = () => {
       memberName: member?.name || '',
       month,
       status: monthDue?.status || 'unpaid',
-      amount: monthDue?.amount || 50000,
+      amount: monthDue?.amount || defaultDuesAmount,
       color: monthDue?.color,
       unpaidAmount: userDues?.unpaidAmount || 0
     });
@@ -201,16 +203,16 @@ const Members = () => {
     if (monthDueIndex === -1) return;
     
     const previousStatus = userDues.monthlyDues[monthDueIndex].status || 'unpaid';
-    const previousAmount = userDues.monthlyDues[monthDueIndex].amount || duesAmount;
+    const previousAmount = userDues.monthlyDues[monthDueIndex].amount || defaultDuesAmount;
     let newUnpaidAmount = userDues.unpaidAmount || 0;
     
     if (status === 'unpaid' && previousStatus !== 'unpaid') {
-      newUnpaidAmount += duesAmount;
+      newUnpaidAmount += defaultDuesAmount;
     } 
     else if (status === 'paid') {
       if (previousStatus === 'unpaid') {
-        if (amount < duesAmount) {
-          newUnpaidAmount += (duesAmount - amount);
+        if (amount < defaultDuesAmount) {
+          newUnpaidAmount += (defaultDuesAmount - amount);
         }
       } else if (previousStatus === 'paid') {
         if (amount < previousAmount) {

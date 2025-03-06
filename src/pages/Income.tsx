@@ -217,7 +217,14 @@ const IncomePage = () => {
                   >
                     <div className="flex items-center">
                       날짜
-                      <ArrowUpDown className="ml-1 h-4 w-4" />
+                      {sortColumn === 'date' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
+                      ) : (
+                        <span className="ml-1 h-4 w-4 flex items-center">
+                          <ArrowUp className="h-2 w-2" />
+                          <ArrowDown className="h-2 w-2" />
+                        </span>
+                      )}
                     </div>
                   </th>
                   <th 
@@ -226,7 +233,14 @@ const IncomePage = () => {
                   >
                     <div className="flex items-center">
                       회원명
-                      <ArrowUpDown className="ml-1 h-4 w-4" />
+                      {sortColumn === 'name' ? (
+                        sortDirection === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
+                      ) : (
+                        <span className="ml-1 h-4 w-4 flex items-center">
+                          <ArrowUp className="h-2 w-2" />
+                          <ArrowDown className="h-2 w-2" />
+                        </span>
+                      )}
                     </div>
                   </th>
                   <th className="border p-2 text-left">항목</th>
