@@ -90,10 +90,30 @@ const Dashboard = () => {
     }
   }, [previousYearBalance, selectedYear]);
 
-  // Calculate cumulative balance for each month
+  // Calculate cumulative balance for each month - fix calculation for months with no data
   const calculateCumulativeBalance = (data: any[]) => {
+    // Create an array with all months for the selected year
+    const allMonths = Array.from({ length: 12 }, (_, i) => i + 1);
+    
+    // Fill in missing months with zero values
+    const completeData = allMonths.map(month => {
+      const existingData = data.find(item => item.month === month);
+      if (existingData) {
+        return existingData;
+      }
+      return {
+        month,
+        income: 0,
+        expense: 0
+      };
+    });
+    
+    // Sort by month to ensure chronological order
+    completeData.sort((a, b) => a.month - b.month);
+    
+    // Calculate cumulative balance
     let runningTotal = carryoverAmount;
-    return data.map(month => {
+    return completeData.map(month => {
       const monthlyBalance = month.income - month.expense;
       runningTotal += monthlyBalance;
       return {
@@ -166,10 +186,18 @@ const Dashboard = () => {
                   {processedMonthlyData.map((data, index) => (
                     <tr key={index} className="border-b">
                       <td className="border p-2">{MONTH_NAMES[data.month - 1]}</td>
-                      <td className="border p-2 text-right text-green-600">{data.income.toLocaleString()}원</td>
-                      <td className="border p-2 text-right text-red-600">{data.expense.toLocaleString()}원</td>
-                      <td className="border p-2 text-right">{(data.income - data.expense).toLocaleString()}원</td>
-                      <td className="border p-2 text-right font-medium">{data.cumulativeBalance.toLocaleString()}원</td>
+                      <td className="border p-2 text-right text-green-600">
+                        {data.income ? data.income.toLocaleString() + '원' : ''}
+                      </td>
+                      <td className="border p-2 text-right text-red-600">
+                        {data.expense ? data.expense.toLocaleString() + '원' : ''}
+                      </td>
+                      <td className="border p-2 text-right">
+                        {data.income || data.expense ? (data.income - data.expense).toLocaleString() + '원' : ''}
+                      </td>
+                      <td className="border p-2 text-right font-medium">
+                        {data.cumulativeBalance ? data.cumulativeBalance.toLocaleString() + '원' : ''}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
