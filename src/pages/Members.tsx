@@ -227,17 +227,31 @@ const Members = () => {
     const previousStatus = userDues.monthlyDues[monthDueIndex].status || 'unpaid';
     let newUnpaidAmount = userDues.unpaidAmount || 0;
     
-    // Update unpaid amount based on payment status change
+    // 2. 자동 미납액 변경 로직 구현
+    // 2.1. '미납' 선택 시 미납액 증가
     if (status === 'unpaid' && previousStatus !== 'unpaid') {
-      // If changing to unpaid, add the dues amount to unpaid amount
       newUnpaidAmount += amount;
     } 
-    else if (status === 'paid' && previousStatus === 'unpaid') {
-      // If paying from unpaid status, calculate any remaining unpaid amount
-      if (amount < userDues.monthlyDues[monthDueIndex].amount) {
-        newUnpaidAmount += (userDues.monthlyDues[monthDueIndex].amount - amount);
+    // 2.2. '납부' 선택 시 미납액 계산
+    else if (status === 'paid') {
+      if (previousStatus === 'unpaid') {
+        // 미납 -> 납부: 납부금액이 회비보다 적으면 차액 미납액에 추가
+        if (amount < userDues.monthlyDues[monthDueIndex].amount) {
+          newUnpaidAmount += (userDues.monthlyDues[monthDueIndex].amount - amount);
+        }
+      } else if (previousStatus === 'paid') {
+        // 납부 -> 납부(금액 변경): 납부금액 차이에 따라 미납액 조정
+        const prevAmount = userDues.monthlyDues[monthDueIndex].amount || 0;
+        if (amount < prevAmount) {
+          // 이전보다 적게 납부: 차액 미납액에 추가
+          newUnpaidAmount += (prevAmount - amount);
+        } else if (amount > prevAmount) {
+          // 이전보다 많이 납부: 차액만큼 미납액 감소 (음수 방지)
+          newUnpaidAmount = Math.max(0, newUnpaidAmount - (amount - prevAmount));
+        }
       }
     }
+    // 2.3. '선납' 선택 시 미납액 변경 없음 (별도 처리 필요 없음)
     
     // Update dues status
     const newDuesStatus = [...duesStatus];
@@ -257,6 +271,9 @@ const Members = () => {
     };
     
     setDuesStatus(newDuesStatus);
+    
+    // 회비 상태 변경 후 미납액 기록 저장
+    await databaseService.saveDues(selectedYear, newDuesStatus);
 
     // Handle income updates if paid
     const member = members.find(m => m.id === userId);
@@ -403,7 +420,8 @@ const Members = () => {
       case 'paid':
         return { 
           variant: 'default' as const, 
-          className: `w-24 bg-green-600 hover:bg-green-700 ${due.color || ''}` 
+          className: `w-24 bg-green-600 hover:bg-green-700 ${due.color || ''}`,
+          textColor: 'text-black'
         };
       case 'unpaid':
         return { 
@@ -479,7 +497,9 @@ const Members = () => {
                                 className={buttonStyle.className}
                                 onClick={() => handleDuesClick(member.id, month)}
                               >
-                                {getDuesDisplay(monthDue)}
+                                <span className={monthDue?.status === 'paid' ? 'text-black' : ''}>
+                                  {getDuesDisplay(monthDue)}
+                                </span>
                               </Button>
                             </td>
                           );
@@ -499,7 +519,7 @@ const Members = () => {
                 <tfoot>
                   <tr className="bg-muted font-semibold">
                     <td className="border p-2 sticky left-0 bg-muted z-10">월별 합계</td>
-                    {monthlyTotals.map((total, index) => (
+                    {calculateMonthlyTotals().map((total, index) => (
                       <td key={index} className="border p-2 text-center text-green-600">
                         {total > 0 ? total.toLocaleString() + '원' : ''}
                       </td>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,12 +44,16 @@ const Dashboard = () => {
         
         // Get recent incomes
         const allIncomes = await databaseService.getIncomes();
-        const filteredIncomes = allIncomes.slice(0, 5); // Get latest 5 incomes
+        const filteredIncomes = allIncomes
+          .filter(income => income.year === selectedYear)
+          .slice(0, 5); // Get latest 5 incomes for the selected year
         setRecentIncomes(filteredIncomes);
         
         // Get recent expenses
         const allExpenses = await databaseService.getExpenses();
-        const filteredExpenses = allExpenses.slice(0, 5); // Get latest 5 expenses
+        const filteredExpenses = allExpenses
+          .filter(expense => new Date(expense.date).getFullYear() === selectedYear)
+          .slice(0, 5); // Get latest 5 expenses for the selected year
         setRecentExpenses(filteredExpenses);
       } catch (error) {
         console.error("Error loading dashboard data:", error);
@@ -74,9 +77,10 @@ const Dashboard = () => {
     toast.success('이미지가 다운로드되었습니다.');
   };
 
-  // Auto-update carryover from previous year's final balance
+  // Auto-update carryover from previous year's final balance only when in the current year
   useEffect(() => {
-    if (previousYearBalance !== 0) {
+    // 이전 연도의 최종 잔액이 0이 아니고, 선택된 연도가 현재 연도일 때만 이월금액을 업데이트
+    if (previousYearBalance !== 0 && selectedYear === currentYear) {
       const updateCarryover = async () => {
         await databaseService.saveCarryoverAmount(selectedYear, previousYearBalance);
         setCarryoverAmount(previousYearBalance);
@@ -88,7 +92,7 @@ const Dashboard = () => {
       
       updateCarryover();
     }
-  }, [previousYearBalance, selectedYear]);
+  }, [previousYearBalance, selectedYear, currentYear]);
 
   // Calculate cumulative balance for each month - fix calculation for months with no data
   const calculateCumulativeBalance = (data: any[]) => {
@@ -118,7 +122,9 @@ const Dashboard = () => {
       runningTotal += monthlyBalance;
       return {
         ...month,
-        cumulativeBalance: runningTotal
+        cumulativeBalance: runningTotal,
+        // 수입 또는 지출이 있는지 확인
+        hasActivity: month.income > 0 || month.expense > 0
       };
     });
   };
@@ -196,7 +202,7 @@ const Dashboard = () => {
                         {data.income || data.expense ? (data.income - data.expense).toLocaleString() + '원' : ''}
                       </td>
                       <td className="border p-2 text-right font-medium">
-                        {data.cumulativeBalance ? data.cumulativeBalance.toLocaleString() + '원' : ''}
+                        {data.hasActivity ? data.cumulativeBalance.toLocaleString() + '원' : ''}
                       </td>
                     </tr>
                   ))}
@@ -214,7 +220,7 @@ const Dashboard = () => {
                       {monthlyData.reduce((sum, data) => sum + (data.income - data.expense), 0).toLocaleString()}원
                     </td>
                     <td className="border p-2 text-right">
-                      {processedMonthlyData.length > 0 
+                      {processedMonthlyData.length > 0 && processedMonthlyData.some(d => d.hasActivity)
                         ? processedMonthlyData[processedMonthlyData.length - 1].cumulativeBalance.toLocaleString() 
                         : carryoverAmount.toLocaleString()}원
                     </td>

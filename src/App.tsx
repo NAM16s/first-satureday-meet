@@ -28,14 +28,25 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
+// 레이아웃에 사용자 프로필 클릭 기능 추가
+const LayoutWithAuth = ({ children }: { children: React.ReactNode }) => {
+  const { currentUser, openProfileDialog } = useAuth();
+  
+  return (
+    <Layout onProfileClick={openProfileDialog}>
+      {children}
+    </Layout>
+  );
+};
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<AuthRoute><Login /></AuthRoute>} />
-    <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
-    <Route path="/members" element={<ProtectedRoute><Layout><Members /></Layout></ProtectedRoute>} />
-    <Route path="/income" element={<ProtectedRoute><Layout><Income /></Layout></ProtectedRoute>} />
-    <Route path="/expenses" element={<ProtectedRoute><Layout><Expenses /></Layout></ProtectedRoute>} />
-    <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+    <Route path="/dashboard" element={<ProtectedRoute><LayoutWithAuth><Dashboard /></LayoutWithAuth></ProtectedRoute>} />
+    <Route path="/members" element={<ProtectedRoute><LayoutWithAuth><Members /></LayoutWithAuth></ProtectedRoute>} />
+    <Route path="/income" element={<ProtectedRoute><LayoutWithAuth><Income /></LayoutWithAuth></ProtectedRoute>} />
+    <Route path="/expenses" element={<ProtectedRoute><LayoutWithAuth><Expenses /></LayoutWithAuth></ProtectedRoute>} />
+    <Route path="/settings" element={<ProtectedRoute><LayoutWithAuth><Settings /></LayoutWithAuth></ProtectedRoute>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
