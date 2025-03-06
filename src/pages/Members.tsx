@@ -1,15 +1,17 @@
+
 import { useState, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MONTH_NAMES } from '@/utils/constants';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
+import { DuesDialog } from '@/components/dues/DuesDialog';
+import { UnpaidAmountDialog } from '@/components/dues/UnpaidAmountDialog';
+import { EventsManager } from '@/components/events/EventsManager';
+import { MonthlyDue } from '@/utils/types';
 
 const Members = () => {
   const { canEdit, currentUser } = useAuth();
@@ -32,6 +34,17 @@ const Members = () => {
     userId: string;
     memberName: string;
     month: number;
+    status: string;
+    amount: number;
+    color?: string;
+    unpaidAmount: number;
+  } | null>(null);
+  
+  // State for unpaid amount dialog
+  const [unpaidDialogOpen, setUnpaidDialogOpen] = useState(false);
+  const [activeUnpaidData, setActiveUnpaidData] = useState<{
+    userId: string;
+    memberName: string;
     amount: number;
   } | null>(null);
   
@@ -62,7 +75,7 @@ const Members = () => {
           // Check if the member has any dues payments
           const hasDuesPayments = allYearsDues.some(dues => 
             dues.userId === member.id && 
-            dues.monthlyDues.some((due: any) => due.paid)
+            dues.monthlyDues.some((due: MonthlyDue) => due.status === 'paid' || due.status === 'prepaid')
           );
           
           // Keep the member if they have dues payments, remove if not
@@ -121,7 +134,7 @@ const Members = () => {
             year: selectedYear,
             monthlyDues: Array.from({ length: 12 }, (_, i) => ({
               month: i + 1,
-              paid: false,
+              status: 'unpaid',
               amount: 50000
             })),
             unpaidAmount: 0
@@ -178,43 +191,72 @@ const Members = () => {
       userId,
       memberName: member?.name || '',
       month,
-      amount: monthDue?.paid ? monthDue.amount : 0
+      status: monthDue?.status || 'unpaid',
+      amount: monthDue?.amount || 50000,
+      color: monthDue?.color,
+      unpaidAmount: userDues?.unpaidAmount || 0
     });
     
     setDuesDialogOpen(true);
   };
 
-  const handleDuesSave = async () => {
+  const handleDuesSave = async (result: {
+    status: 'unpaid' | 'paid' | 'prepaid';
+    amount: number;
+    color?: string;
+    isDefaultDues?: boolean;
+  }) => {
     if (!activeDuesData) return;
     
-    const { userId, month, amount } = activeDuesData;
-    const isPaid = amount > 0;
+    const { userId, month } = activeDuesData;
+    const { status, amount, color, isDefaultDues } = result;
     
     // Find current dues status
-    const userDues = duesStatus.find(dues => dues.userId === userId);
-    const monthDue = userDues?.monthlyDues.find(due => due.month === month);
-    const previouslyPaid = monthDue?.paid || false;
+    const userDuesIndex = duesStatus.findIndex(dues => dues.userId === userId);
+    if (userDuesIndex === -1) return;
+    
+    const userDues = duesStatus[userDuesIndex];
+    const monthDueIndex = userDues.monthlyDues.findIndex(due => due.month === month);
+    if (monthDueIndex === -1) return;
+    
+    const previousStatus = userDues.monthlyDues[monthDueIndex].status || 'unpaid';
+    let newUnpaidAmount = userDues.unpaidAmount || 0;
+    
+    // Update unpaid amount based on payment status change
+    if (status === 'unpaid' && previousStatus !== 'unpaid') {
+      // If changing to unpaid, add the dues amount to unpaid amount
+      newUnpaidAmount += amount;
+    } 
+    else if (status === 'paid' && previousStatus === 'unpaid') {
+      // If paying from unpaid status, calculate any remaining unpaid amount
+      if (amount < userDues.monthlyDues[monthDueIndex].amount) {
+        newUnpaidAmount += (userDues.monthlyDues[monthDueIndex].amount - amount);
+      }
+    }
     
     // Update dues status
-    setDuesStatus(prev => 
-      prev.map(user => 
-        user.userId === userId 
-          ? {
-              ...user,
-              monthlyDues: user.monthlyDues.map(due => 
-                due.month === month 
-                  ? { ...due, paid: isPaid, amount: amount }
-                  : due
-              )
-            }
-          : user
-      )
-    );
+    const newDuesStatus = [...duesStatus];
+    newDuesStatus[userDuesIndex] = {
+      ...userDues,
+      unpaidAmount: newUnpaidAmount,
+      monthlyDues: [
+        ...userDues.monthlyDues.slice(0, monthDueIndex),
+        {
+          ...userDues.monthlyDues[monthDueIndex],
+          status,
+          amount,
+          color
+        },
+        ...userDues.monthlyDues.slice(monthDueIndex + 1)
+      ]
+    };
+    
+    setDuesStatus(newDuesStatus);
 
-    // Handle income updates
+    // Handle income updates if paid
     const member = members.find(m => m.id === userId);
     
-    if (isPaid && !previouslyPaid) {
+    if (status === 'paid' && previousStatus !== 'paid') {
       // Add new income entry
       const today = new Date();
       const date = new Date(today);
@@ -234,7 +276,7 @@ const Members = () => {
       await databaseService.addIncome(newIncome);
       toast.success(`${month}월 회비가 수입내역에 추가되었습니다.`);
     } 
-    else if (!isPaid && previouslyPaid) {
+    else if (status !== 'paid' && previousStatus === 'paid') {
       // Remove income entry
       const incomes = await databaseService.getIncomes();
       const duesIncome = incomes.find(income => 
@@ -249,7 +291,7 @@ const Members = () => {
         toast.info(`${month}월 회비 납부가 취소되었습니다.`);
       }
     } 
-    else if (isPaid && previouslyPaid && amount !== monthDue?.amount) {
+    else if (status === 'paid' && previousStatus === 'paid' && amount !== userDues.monthlyDues[monthDueIndex].amount) {
       // Update income amount
       const incomes = await databaseService.getIncomes();
       const duesIncome = incomes.find(income => 
@@ -265,24 +307,41 @@ const Members = () => {
       }
     }
     
-    setDuesDialogOpen(false);
     setActiveDuesData(null);
   };
 
-  const handleUnpaidChange = (userId: string, value: number) => {
+  const handleUnpaidClick = (userId: string, amount: number) => {
     if (!canEdit) {
       toast.info('미납액은 회계 또는 관리자만 수정할 수 있습니다.');
       return;
     }
     
+    const member = members.find(m => m.id === userId);
+    
+    setActiveUnpaidData({
+      userId,
+      memberName: member?.name || '',
+      amount
+    });
+    
+    setUnpaidDialogOpen(true);
+  };
+
+  const handleUnpaidSave = (amount: number) => {
+    if (!activeUnpaidData) return;
+    
+    const { userId } = activeUnpaidData;
+    
     setDuesStatus(prev => 
       prev.map(user => 
         user.userId === userId 
-          ? { ...user, unpaidAmount: value }
+          ? { ...user, unpaidAmount: amount }
           : user
       )
     );
+    
     toast.success('미납액이 수정되었습니다.');
+    setActiveUnpaidData(null);
   };
 
   const handlePreviousYear = () => {
@@ -293,13 +352,17 @@ const Members = () => {
     setSelectedYear(prev => prev + 1);
   };
 
+  const handleEventsChange = (updatedEvents: any[]) => {
+    setSpecialEvents(updatedEvents);
+  };
+
   // Calculate monthly dues totals
   const calculateMonthlyTotals = () => {
     const monthlyTotals = Array(12).fill(0);
     
     duesStatus.forEach(userDues => {
-      userDues.monthlyDues.forEach((due: any) => {
-        if (due.paid) {
+      userDues.monthlyDues.forEach((due: MonthlyDue) => {
+        if (due.status === 'paid') {
           monthlyTotals[due.month - 1] += due.amount;
         }
       });
@@ -310,6 +373,50 @@ const Members = () => {
 
   const monthlyTotals = calculateMonthlyTotals();
   const totalDues = monthlyTotals.reduce((sum, amount) => sum + amount, 0);
+
+  // Get display value for dues status
+  const getDuesDisplay = (due: MonthlyDue) => {
+    if (!due) return '-';
+    
+    switch (due.status) {
+      case 'paid':
+        return due.amount ? due.amount.toLocaleString() + '원' : '-';
+      case 'unpaid':
+        return '미납';
+      case 'prepaid':
+        return '선납';
+      default:
+        return '-';
+    }
+  };
+
+  // Get button color for dues status
+  const getDuesButtonStyle = (due: MonthlyDue) => {
+    if (!due) return {};
+    
+    switch (due.status) {
+      case 'paid':
+        return { 
+          variant: 'default' as const, 
+          className: `w-24 bg-green-600 hover:bg-green-700 ${due.color || ''}` 
+        };
+      case 'unpaid':
+        return { 
+          variant: 'outline' as const, 
+          className: `w-24 text-red-500 ${due.color || ''}` 
+        };
+      case 'prepaid':
+        return { 
+          variant: 'outline' as const, 
+          className: `w-24 text-blue-500 ${due.color || ''}` 
+        };
+      default:
+        return { 
+          variant: 'outline' as const, 
+          className: 'w-24' 
+        };
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -358,29 +465,27 @@ const Members = () => {
                         {MONTH_NAMES.map((_, index) => {
                           const month = index + 1;
                           const monthDue = userDues?.monthlyDues.find(due => due.month === month);
+                          const buttonStyle = getDuesButtonStyle(monthDue);
                           return (
                             <td key={index} className="border p-2 text-center">
                               <Button 
-                                variant={monthDue?.paid ? "default" : "outline"}
+                                variant={buttonStyle.variant}
                                 size="sm"
-                                className={`w-24 ${monthDue?.paid ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                                className={buttonStyle.className}
                                 onClick={() => handleDuesClick(member.id, month)}
                               >
-                                {monthDue?.paid ? `${monthDue.amount.toLocaleString()}원` : '-'}
+                                {getDuesDisplay(monthDue)}
                               </Button>
                             </td>
                           );
                         })}
-                        <td className="border p-2 text-center">
-                          <Input
-                            type="number"
-                            value={userDues?.unpaidAmount || 0}
-                            onChange={(e) => handleUnpaidChange(member.id, Number(e.target.value))}
-                            className="w-24 text-right mx-auto"
-                            step={1000}
-                            min={0}
-                            readOnly={!canEdit}
-                          />
+                        <td 
+                          className="border p-2 text-center cursor-pointer"
+                          onClick={() => handleUnpaidClick(member.id, userDues?.unpaidAmount || 0)}
+                        >
+                          <span className="text-red-500 font-medium">
+                            {userDues?.unpaidAmount ? userDues.unpaidAmount.toLocaleString() + '원' : '-'}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -391,11 +496,11 @@ const Members = () => {
                     <td className="border p-2 sticky left-0 bg-muted z-10">월별 합계</td>
                     {monthlyTotals.map((total, index) => (
                       <td key={index} className="border p-2 text-center text-green-600">
-                        {total.toLocaleString()}원
+                        {total > 0 ? total.toLocaleString() + '원' : ''}
                       </td>
                     ))}
                     <td className="border p-2 text-center text-green-600">
-                      {totalDues.toLocaleString()}원
+                      {totalDues > 0 ? totalDues.toLocaleString() + '원' : ''}
                     </td>
                   </tr>
                 </tfoot>
@@ -404,76 +509,41 @@ const Members = () => {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>경조사비 지급 내역</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="p-2 text-left">날짜</th>
-                    <th className="p-2 text-left">회원명</th>
-                    <th className="p-2 text-left">내용</th>
-                    <th className="p-2 text-right">금액</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {specialEvents.length > 0 ? (
-                    specialEvents.map(event => (
-                      <tr key={event.id} className="border-b">
-                        <td className="p-2">{event.date}</td>
-                        <td className="p-2">{event.name}</td>
-                        <td className="p-2">{event.description}</td>
-                        <td className="p-2 text-right">{event.amount.toLocaleString()}원</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="p-4 text-center text-muted-foreground">
-                        {selectedYear}년도의 경조사비 지급 내역이 없습니다.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+        {/* 경조사비 지급 내역 - 이제 EventsManager 컴포넌트로 분리 */}
+        <EventsManager 
+          selectedYear={selectedYear}
+          events={specialEvents}
+          onEventsChange={handleEventsChange}
+        />
       </div>
 
-      {/* Dues Input Dialog */}
-      <Dialog open={duesDialogOpen} onOpenChange={setDuesDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>
-              {activeDuesData ? `${activeDuesData.memberName} - ${activeDuesData.month}월 회비` : '회비 입력'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="amount">회비 금액</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={activeDuesData?.amount || 0}
-                onChange={(e) => setActiveDuesData(prev => 
-                  prev ? { ...prev, amount: Number(e.target.value) } : null
-                )}
-                min={0}
-                step={1000}
-                className="text-right"
-              />
-              <p className="text-sm text-muted-foreground">0원으로 입력 시 미납 처리됩니다.</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDuesDialogOpen(false)}>취소</Button>
-            <Button onClick={handleDuesSave}>저장</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 회비 다이얼로그 */}
+      {activeDuesData && (
+        <DuesDialog
+          open={duesDialogOpen}
+          onOpenChange={setDuesDialogOpen}
+          userId={activeDuesData.userId}
+          memberName={activeDuesData.memberName}
+          month={activeDuesData.month}
+          year={selectedYear}
+          currentStatus={activeDuesData.status}
+          defaultDues={activeDuesData.amount}
+          onSave={handleDuesSave}
+          color={activeDuesData.color}
+          unpaidAmount={activeDuesData.unpaidAmount}
+        />
+      )}
+      
+      {/* 미납액 수정 다이얼로그 */}
+      {activeUnpaidData && (
+        <UnpaidAmountDialog
+          open={unpaidDialogOpen}
+          onOpenChange={setUnpaidDialogOpen}
+          memberName={activeUnpaidData.memberName}
+          currentAmount={activeUnpaidData.amount}
+          onSave={handleUnpaidSave}
+        />
+      )}
     </div>
   );
 };

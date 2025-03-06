@@ -1,22 +1,49 @@
-
-// 사용자 역할 타입
 export type Role = 'admin' | 'treasurer' | 'member';
 
-// 사용자 인터페이스
 export interface User {
   id: string;
-  password: string;
   name: string;
+  password: string;
   role: Role;
+  contact?: string;
 }
 
-// 수입 항목 타입
+export interface Member {
+  id: string;
+  name: string;
+}
+
+export interface DuesData {
+  userId: string;
+  year: number;
+  monthlyDues: MonthlyDue[];
+  unpaidAmount?: number;
+}
+
+export interface MonthlyDue {
+  month: number;
+  paid?: boolean;
+  status?: 'unpaid' | 'paid' | 'prepaid';
+  amount?: number;
+  color?: string;
+}
+
+export interface MemberSettings {
+  userId: string;
+  defaultDues?: number;
+}
+
+export interface EventHistory {
+  id: string;
+  year: number;
+  events: any[];
+  created_at: string;
+}
+
 export type IncomeType = '회비' | '기타';
 
-// 지출 항목 타입
 export type ExpenseType = '식대' | '경조사비' | '기타';
 
-// 수입 인터페이스
 export interface Income {
   id: string;
   date: string;
@@ -28,7 +55,6 @@ export interface Income {
   month: number;
 }
 
-// 지출 인터페이스
 export interface Expense {
   id: string;
   date: string;
@@ -40,7 +66,6 @@ export interface Expense {
   month: number;
 }
 
-// 회비 납부 상태 인터페이스
 export interface DuesStatus {
   userId: string;
   year: number;
@@ -52,7 +77,6 @@ export interface DuesStatus {
   }[];
 }
 
-// 재정 데이터 인터페이스
 export interface FinanceData {
   incomes: Income[];
   expenses: Expense[];
@@ -63,7 +87,6 @@ export interface FinanceData {
   };
 }
 
-// Transaction 인터페이스 (FinanceContext용)
 export interface Transaction {
   id: string;
   date: string;
@@ -73,7 +96,6 @@ export interface Transaction {
   description?: string;
 }
 
-// YearlyData 인터페이스 (FinanceContext용)
 export interface YearlyData {
   year: number;
   balanceForward: number;
@@ -82,7 +104,6 @@ export interface YearlyData {
   monthlyExpenses: { month: number; amount: number }[];
 }
 
-// MemberDues 인터페이스 (FinanceContext용)
 export interface MemberDues {
   userId: string;
   duesByMonth: { [month: number]: number };

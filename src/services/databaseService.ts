@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from "@/integrations/supabase/client";
+import { MemberSettings, DuesData, MonthlyDue, EventHistory } from '@/utils/types';
 
 // Storage keys for backward compatibility during migration
 const STORAGE_KEYS = {
@@ -10,7 +11,9 @@ const STORAGE_KEYS = {
   DUES: 'moim_dues',
   EVENTS: 'moim_events',
   SETTINGS: 'moim_settings',
-  BACKUP: 'moim_backup'
+  BACKUP: 'moim_backup',
+  MEMBER_SETTINGS: 'moim_member_settings',
+  EVENT_HISTORIES: 'moim_event_histories'
 };
 
 // Generic get function from localStorage (for migration/fallback)
@@ -117,8 +120,43 @@ const syncUserToMembers = async (user: any) => {
   }
 };
 
+// Member Settings
+const getMemberSettings = async (userId: string): Promise<MemberSettings | null> => {
+  try {
+    const settings = getLocalData<MemberSettings[]>(STORAGE_KEYS.MEMBER_SETTINGS, []);
+    return settings.find(s => s.userId === userId) || null;
+  } catch (error) {
+    console.error('Error fetching member settings:', error);
+    return null;
+  }
+};
+
+const saveMemberSettings = async (userId: string, settings: Partial<MemberSettings>): Promise<void> => {
+  try {
+    const allSettings = getLocalData<MemberSettings[]>(STORAGE_KEYS.MEMBER_SETTINGS, []);
+    const existingIndex = allSettings.findIndex(s => s.userId === userId);
+    
+    if (existingIndex >= 0) {
+      allSettings[existingIndex] = {
+        ...allSettings[existingIndex],
+        ...settings,
+        userId
+      };
+    } else {
+      allSettings.push({
+        userId,
+        ...settings
+      });
+    }
+    
+    setLocalData(STORAGE_KEYS.MEMBER_SETTINGS, allSettings);
+  } catch (error) {
+    console.error('Error saving member settings:', error);
+  }
+};
+
 // Dues
-const getDues = async (year: number) => {
+const getDues = async (year: number): Promise<DuesData[]> => {
   try {
     const { data, error } = await supabase
       .from(tables.dues)
@@ -140,7 +178,7 @@ const getDues = async (year: number) => {
   }
 };
 
-const saveDues = async (year: number, dues: any[]) => {
+const saveDues = async (year: number, dues: DuesData[]): Promise<void> => {
   try {
     // First, delete existing dues for the year
     const { error: deleteError } = await supabase
@@ -475,6 +513,31 @@ const saveEvents = async (events: any[]) => {
   }
 };
 
+// Event histories
+const getEventHistories = async (): Promise<EventHistory[]> => {
+  return getLocalData<EventHistory[]>(STORAGE_KEYS.EVENT_HISTORIES, []);
+};
+
+const createEventHistory = async (year: number, events: any[]): Promise<string> => {
+  try {
+    const historyId = uuidv4();
+    const newHistory: EventHistory = {
+      id: historyId,
+      year,
+      events: [...events],
+      created_at: new Date().toISOString()
+    };
+    
+    const histories = getLocalData<EventHistory[]>(STORAGE_KEYS.EVENT_HISTORIES, []);
+    setLocalData(STORAGE_KEYS.EVENT_HISTORIES, [newHistory, ...histories]);
+    
+    return historyId;
+  } catch (error) {
+    console.error('Error creating event history:', error);
+    throw error;
+  }
+};
+
 // Finance settings
 const getSettings = async () => {
   try {
@@ -715,6 +778,10 @@ export const databaseService = {
   saveMembers,
   syncUserToMembers,
   
+  // Member Settings
+  getMemberSettings,
+  saveMemberSettings,
+  
   // Dues
   getDues,
   saveDues,
@@ -736,6 +803,10 @@ export const databaseService = {
   // Events
   getEvents,
   saveEvents,
+  
+  // Event histories
+  getEventHistories,
+  createEventHistory,
   
   // Finance settings
   getSettings,

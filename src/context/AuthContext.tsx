@@ -4,6 +4,7 @@ import { User } from '../utils/types';
 import { USERS, STORAGE_KEYS } from '../utils/constants';
 import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
+import { UserProfileDialog } from '@/components/user/UserProfileDialog';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -13,6 +14,7 @@ interface AuthContextType {
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   canEdit: boolean;
+  openProfileDialog: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +23,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(USERS);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState<boolean>(false);
   
   // Compute if the current user can edit (admin or treasurer)
   const canEdit = currentUser?.role === 'admin' || currentUser?.role === 'treasurer';
@@ -45,6 +48,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // 사용자가 변경될 때 localStorage에 저장
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  }, [users]);
+  
+  // 현재 사용자가 변경될 때 localStorage에 저장
+  useEffect(() => {
+    if (currentUser) {
+      const updatedUser = users.find(user => user.id === currentUser.id);
+      if (updatedUser) {
+        setCurrentUser(updatedUser);
+        localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(updatedUser));
+      }
+    }
   }, [users]);
 
   const login = (id: string, password: string): boolean => {
@@ -72,6 +86,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
     toast.info('로그아웃 되었습니다.');
   };
+  
+  const openProfileDialog = () => {
+    setProfileDialogOpen(true);
+  };
 
   // Add users to members list when they are created
   useEffect(() => {
@@ -96,9 +114,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         users,
         setUsers,
         canEdit,
+        openProfileDialog,
       }}
     >
       {children}
+      <UserProfileDialog 
+        open={profileDialogOpen} 
+        onOpenChange={setProfileDialogOpen}
+      />
     </AuthContext.Provider>
   );
 };
