@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { DuesDialog } from '@/components/dues/DuesDialog';
 import { UnpaidAmountDialog } from '@/components/dues/UnpaidAmountDialog';
 import { EventsManager } from '@/components/events/EventsManager';
-import { MonthlyDue } from '@/utils/types';
+import { MonthlyDue, DuesData, EventData } from '@/utils/types';
 
 const Members = () => {
   const { canEdit, currentUser } = useAuth();
@@ -23,10 +22,10 @@ const Members = () => {
   const [members, setMembers] = useState<any[]>([]);
 
   // Dues data from database
-  const [duesStatus, setDuesStatus] = useState<any[]>([]);
+  const [duesStatus, setDuesStatus] = useState<DuesData[]>([]);
 
   // Special events (expenses linked to members)
-  const [specialEvents, setSpecialEvents] = useState<any[]>([]);
+  const [specialEvents, setSpecialEvents] = useState<EventData[]>([]);
 
   // State for dues dialog
   const [duesDialogOpen, setDuesDialogOpen] = useState(false);
@@ -129,12 +128,12 @@ const Members = () => {
           setDuesStatus(savedDuesStatus);
         } else {
           // Initialize new dues data for the year
-          const newDuesStatus = members.map(member => ({
+          const newDuesStatus: DuesData[] = members.map(member => ({
             userId: member.id,
             year: selectedYear,
             monthlyDues: Array.from({ length: 12 }, (_, i) => ({
               month: i + 1,
-              status: 'unpaid',
+              status: 'unpaid' as 'unpaid',
               amount: 50000
             })),
             unpaidAmount: 0
@@ -148,7 +147,13 @@ const Members = () => {
         const memberEvents = allExpenses.filter(expense => 
           expense.type === '경조사비' && 
           new Date(expense.date).getFullYear() === selectedYear
-        );
+        ).map(expense => ({
+          id: expense.id,
+          date: expense.date,
+          name: expense.name || '',
+          description: expense.description || '',
+          amount: expense.amount
+        }));
         setSpecialEvents(memberEvents);
       } catch (error) {
         console.error('Error loading dues and events:', error);
@@ -352,7 +357,7 @@ const Members = () => {
     setSelectedYear(prev => prev + 1);
   };
 
-  const handleEventsChange = (updatedEvents: any[]) => {
+  const handleEventsChange = (updatedEvents: EventData[]) => {
     setSpecialEvents(updatedEvents);
   };
 

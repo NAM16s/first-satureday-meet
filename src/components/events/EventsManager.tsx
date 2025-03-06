@@ -10,12 +10,12 @@ import { PlusCircle, Download, RotateCcw, Pencil, Trash2, ChevronDown, ChevronUp
 import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
 import { exportAsImage } from '@/utils/exportUtils';
-import { EventHistory } from '@/utils/types';
+import { EventHistory, EventData } from '@/utils/types';
 
 interface EventsManagerProps {
   selectedYear: number;
-  events: any[];
-  onEventsChange: (events: any[]) => void;
+  events: EventData[];
+  onEventsChange: (events: EventData[]) => void;
 }
 
 export const EventsManager = ({ 
@@ -29,14 +29,15 @@ export const EventsManager = ({
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [expandedHistories, setExpandedHistories] = useState<string[]>([]);
   
-  const [newEvent, setNewEvent] = useState({
+  const [newEvent, setNewEvent] = useState<EventData>({
     id: '',
     date: '',
     name: '',
     description: '',
+    amount: 0
   });
   
-  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [editingEvent, setEditingEvent] = useState<EventData | null>(null);
   const [eventHistories, setEventHistories] = useState<EventHistory[]>([]);
   
   // Load event histories
@@ -78,6 +79,7 @@ export const EventsManager = ({
       date: '',
       name: '',
       description: '',
+      amount: 0
     });
     
     toast.success('경조사비 지급 내역이 추가되었습니다.');
@@ -100,7 +102,7 @@ export const EventsManager = ({
     toast.success('경조사비 지급 내역이 삭제되었습니다.');
   };
   
-  const handleStartEditEvent = (event: any) => {
+  const handleStartEditEvent = (event: EventData) => {
     setEditingEvent({ ...event });
     setEditEventDialogOpen(true);
   };
@@ -278,7 +280,7 @@ export const EventsManager = ({
                       </thead>
                       <tbody>
                         {history.events.length > 0 ? (
-                          history.events.map((event: any, index: number) => (
+                          history.events.map((event: EventData, index: number) => (
                             <tr key={index} className="border-b">
                               <td className="p-2">{event.date}</td>
                               <td className="p-2">{event.name}</td>
@@ -374,7 +376,7 @@ export const EventsManager = ({
                     id="edit-date"
                     type="date"
                     value={editingEvent.date}
-                    onChange={(e) => setEditingEvent(prev => ({ ...prev, date: e.target.value }))}
+                    onChange={(e) => setEditingEvent(prev => prev ? ({ ...prev, date: e.target.value }) : null)}
                     required
                   />
                 </div>
@@ -383,7 +385,7 @@ export const EventsManager = ({
                   <Input
                     id="edit-name"
                     value={editingEvent.name}
-                    onChange={(e) => setEditingEvent(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => setEditingEvent(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
                     required
                   />
                 </div>
@@ -393,7 +395,7 @@ export const EventsManager = ({
                 <Input
                   id="edit-description"
                   value={editingEvent.description}
-                  onChange={(e) => setEditingEvent(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) => setEditingEvent(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
                 />
               </div>
               <div className="space-y-2">
@@ -402,7 +404,7 @@ export const EventsManager = ({
                   id="edit-amount"
                   type="number"
                   value={editingEvent.amount || ''}
-                  onChange={(e) => setEditingEvent(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                  onChange={(e) => setEditingEvent(prev => prev ? ({ ...prev, amount: Number(e.target.value) }) : null)}
                   className="text-right"
                   min={0}
                   step={10000}

@@ -1,6 +1,7 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from "@/integrations/supabase/client";
-import { MemberSettings, DuesData, MonthlyDue, EventHistory } from '@/utils/types';
+import { MemberSettings, DuesData, MonthlyDue, EventHistory, EventData } from '@/utils/types';
 
 // Storage keys for backward compatibility during migration
 const STORAGE_KEYS = {
@@ -156,6 +157,55 @@ const saveMemberSettings = async (userId: string, settings: Partial<MemberSettin
 };
 
 // Dues
+// Convert database dues format to application format
+const convertDbDuesToAppDues = (dbDues: any[]): DuesData[] => {
+  // Group dues by userId and year
+  const duesMap = new Map<string, DuesData>();
+  
+  dbDues.forEach(due => {
+    const key = `${due.user_id}_${due.year}`;
+    if (!duesMap.has(key)) {
+      duesMap.set(key, {
+        userId: due.user_id,
+        year: due.year,
+        monthlyDues: [],
+        unpaidAmount: 0
+      });
+    }
+    
+    const monthlyDue: MonthlyDue = {
+      month: due.month,
+      status: due.is_paid ? 'paid' : 'unpaid',
+      amount: due.amount
+    };
+    
+    duesMap.get(key)!.monthlyDues.push(monthlyDue);
+  });
+  
+  // Convert map to array
+  return Array.from(duesMap.values());
+};
+
+// Convert app dues format to database format for saving
+const convertAppDuesToDbDues = (duesData: DuesData[]): any[] => {
+  const dbDues: any[] = [];
+  
+  duesData.forEach(dues => {
+    dues.monthlyDues.forEach(monthlyDue => {
+      dbDues.push({
+        user_id: dues.userId,
+        year: dues.year,
+        month: monthlyDue.month,
+        amount: monthlyDue.amount || 0,
+        is_paid: monthlyDue.status === 'paid',
+        unpaid_amount: dues.unpaidAmount || 0
+      });
+    });
+  });
+  
+  return dbDues;
+};
+
 const getDues = async (year: number): Promise<DuesData[]> => {
   try {
     const { data, error } = await supabase
@@ -166,7 +216,8 @@ const getDues = async (year: number): Promise<DuesData[]> => {
     if (error) throw error;
     
     if (data && data.length > 0) {
-      return data;
+      // Convert database format to application format
+      return convertDbDuesToAppDues(data);
     } else {
       // Fallback to localStorage
       return getLocalData(`${STORAGE_KEYS.DUES}_${year}`, []);
@@ -180,6 +231,9 @@ const getDues = async (year: number): Promise<DuesData[]> => {
 
 const saveDues = async (year: number, dues: DuesData[]): Promise<void> => {
   try {
+    // Convert to database format
+    const dbDues = convertAppDuesToDbDues(dues);
+    
     // First, delete existing dues for the year
     const { error: deleteError } = await supabase
       .from(tables.dues)
@@ -188,12 +242,14 @@ const saveDues = async (year: number, dues: DuesData[]): Promise<void> => {
     
     if (deleteError) throw deleteError;
     
-    // Then insert new dues
-    const { error: insertError } = await supabase
-      .from(tables.dues)
-      .insert(dues.map(due => ({ ...due, year })));
-    
-    if (insertError) throw insertError;
+    if (dbDues.length > 0) {
+      // Then insert new dues
+      const { error: insertError } = await supabase
+        .from(tables.dues)
+        .insert(dbDues);
+      
+      if (insertError) throw insertError;
+    }
     
     // Also update localStorage for backup
     setLocalData(`${STORAGE_KEYS.DUES}_${year}`, dues);
@@ -518,7 +574,7 @@ const getEventHistories = async (): Promise<EventHistory[]> => {
   return getLocalData<EventHistory[]>(STORAGE_KEYS.EVENT_HISTORIES, []);
 };
 
-const createEventHistory = async (year: number, events: any[]): Promise<string> => {
+const createEventHistory = async (year: number, events: EventData[]): Promise<string> => {
   try {
     const historyId = uuidv4();
     const newHistory: EventHistory = {

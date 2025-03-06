@@ -1,3 +1,4 @@
+
 export type Role = 'admin' | 'treasurer' | 'member';
 
 export interface User {
@@ -36,8 +37,16 @@ export interface MemberSettings {
 export interface EventHistory {
   id: string;
   year: number;
-  events: any[];
+  events: EventData[];
   created_at: string;
+}
+
+export interface EventData {
+  id: string;
+  date: string;
+  name: string;
+  description: string;
+  amount?: number;
 }
 
 export type IncomeType = '회비' | '기타';
