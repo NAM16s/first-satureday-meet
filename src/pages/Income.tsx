@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -181,9 +182,9 @@ const IncomePage = () => {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle>수입 내역</CardTitle>
+          
           <div className="flex items-center space-x-4">
-            <CardTitle>수입 내역</CardTitle>
-            
             <div className="flex items-center space-x-2">
               <Button variant="outline" size="sm" onClick={handlePreviousYear}>
                 <ChevronLeft className="h-4 w-4" />
@@ -194,7 +195,7 @@ const IncomePage = () => {
               </Button>
             </div>
             
-            <div className="relative ml-4">
+            <div className="relative">
               <Input
                 placeholder="회원명으로 검색"
                 value={searchQuery}

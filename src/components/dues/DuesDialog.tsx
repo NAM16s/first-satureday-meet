@@ -78,8 +78,10 @@ export const DuesDialog = ({
       setIsPaidDialogOpen(false);
       setSaveAsDefault(false);
       setCalculatedUnpaidAmount(unpaidAmount);
+      // Set paidAmount to duesAmount initially
+      setPaidAmount(defaultDues);
     }
-  }, [open, currentStatus, color, unpaidAmount]);
+  }, [open, currentStatus, color, unpaidAmount, defaultDues]);
 
   const toggleBackgroundColor = () => {
     setBackgroundColor(prev => 
@@ -98,7 +100,7 @@ export const DuesDialog = ({
       setIsPaidDialogOpen(true);
       setPaidAmount(duesAmount);
     } else {
-      // For prepaid, don't change unpaid amount
+      // For prepaid, don't change unpaid amount as per requirement 1.3
       setPaymentStatus(value);
       setCalculatedUnpaidAmount(unpaidAmount);
     }
@@ -115,6 +117,7 @@ export const DuesDialog = ({
 
   const handlePaidConfirm = () => {
     // Calculate what unpaid amount would be if dues are partially paid
+    // As per requirement 1.2: 미납액 = 미납액+(이달의회비-납부금액)
     const difference = duesAmount - paidAmount;
     let newUnpaidAmount = unpaidAmount;
     
@@ -164,6 +167,9 @@ export const DuesDialog = ({
             <DialogTitle>
               {memberName} - {year}년 {month}월 회비
             </DialogTitle>
+            <DialogDescription>
+              회비 납부 상태와 금액을 관리합니다.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
@@ -226,11 +232,11 @@ export const DuesDialog = ({
             <div className="space-y-2">
               <Label>현재 미납액</Label>
               <div className="text-lg font-semibold">
-                {unpaidAmount ? unpaidAmount.toLocaleString() + '원' : '0원'}
+                {unpaidAmount > 0 ? unpaidAmount.toLocaleString() + '원' : '0원'}
               </div>
               {calculatedUnpaidAmount !== unpaidAmount && (
                 <div className="text-md text-orange-600">
-                  변경 후 미납액: {calculatedUnpaidAmount.toLocaleString()}원
+                  변경 후 미납액: {calculatedUnpaidAmount > 0 ? calculatedUnpaidAmount.toLocaleString() + '원' : '0원'}
                 </div>
               )}
             </div>
@@ -248,6 +254,9 @@ export const DuesDialog = ({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>미납 처리 확인</DialogTitle>
+            <DialogDescription>
+              미납 상태로 변경하시겠습니까?
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p>
@@ -267,6 +276,9 @@ export const DuesDialog = ({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>납부 금액 입력</DialogTitle>
+            <DialogDescription>
+              납부 금액을 입력해주세요.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">

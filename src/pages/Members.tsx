@@ -241,56 +241,61 @@ const Members = () => {
     
     setDuesStatus(newDuesStatus);
     
-    await databaseService.saveDues(selectedYear, newDuesStatus);
+    try {
+      await databaseService.saveDues(selectedYear, newDuesStatus);
 
-    const member = members.find(m => m.id === userId);
-    
-    if (status === 'paid' && previousStatus !== 'paid') {
-      const today = new Date();
-      const date = new Date(today);
-      date.setFullYear(selectedYear, month - 1, today.getDate());
+      const member = members.find(m => m.id === userId);
       
-      const newIncome = {
-        date: date.toISOString().split('T')[0],
-        name: member?.name || '',
-        type: '회비',
-        amount: amount,
-        description: `${selectedYear}년 ${month}월 회비`,
-        year: selectedYear,
-        month: month,
-        userId: userId
-      };
+      if (status === 'paid' && previousStatus !== 'paid') {
+        const today = new Date();
+        const date = new Date(today);
+        date.setFullYear(selectedYear, month - 1, today.getDate());
+        
+        const newIncome = {
+          date: date.toISOString().split('T')[0],
+          name: member?.name || '',
+          type: '회비',
+          amount: amount,
+          description: `${selectedYear}년 ${month}월 회비`,
+          year: selectedYear,
+          month: month,
+          userId: userId
+        };
 
-      await databaseService.addIncome(newIncome);
-      toast.success(`${month}월 회비가 수입내역에 추가되었습니다.`);
-    } 
-    else if (status !== 'paid' && previousStatus === 'paid') {
-      const incomes = await databaseService.getIncomes();
-      const duesIncome = incomes.find(income => 
-        income.type === '회비' && 
-        income.year === selectedYear && 
-        income.month === month && 
-        income.userId === userId
-      );
-      
-      if (duesIncome) {
-        await databaseService.deleteIncome(duesIncome.id);
-        toast.info(`${month}월 회비 납부가 취소되었습니다.`);
+        await databaseService.addIncome(newIncome);
+        toast.success(`${month}월 회비가 수입내역에 추가되었습니다.`);
+      } 
+      else if (status !== 'paid' && previousStatus === 'paid') {
+        const incomes = await databaseService.getIncomes();
+        const duesIncome = incomes.find(income => 
+          income.type === '회비' && 
+          income.year === selectedYear && 
+          income.month === month && 
+          income.userId === userId
+        );
+        
+        if (duesIncome) {
+          await databaseService.deleteIncome(duesIncome.id);
+          toast.info(`${month}월 회비 납부가 취소되었습니다.`);
+        }
+      } 
+      else if (status === 'paid' && previousStatus === 'paid' && amount !== previousAmount) {
+        const incomes = await databaseService.getIncomes();
+        const duesIncome = incomes.find(income => 
+          income.type === '회비' && 
+          income.year === selectedYear && 
+          income.month === month && 
+          income.userId === userId
+        );
+        
+        if (duesIncome) {
+          await databaseService.updateIncome(duesIncome.id, { amount });
+          toast.success(`${month}월 회비 금액 수정되었습니다.`);
+        }
       }
-    } 
-    else if (status === 'paid' && previousStatus === 'paid' && amount !== userDues.monthlyDues[monthDueIndex].amount) {
-      const incomes = await databaseService.getIncomes();
-      const duesIncome = incomes.find(income => 
-        income.type === '회비' && 
-        income.year === selectedYear && 
-        income.month === month && 
-        income.userId === userId
-      );
-      
-      if (duesIncome) {
-        await databaseService.updateIncome(duesIncome.id, { amount });
-        toast.success(`${month}월 회비 금액 수정되었습니다.`);
-      }
+    } catch (error) {
+      console.error("Error updating dues:", error);
+      toast.error("회비 정보 저장 중 오류가 발생했습니다.");
     }
     
     setActiveDuesData(null);
@@ -414,18 +419,16 @@ const Members = () => {
 
       <div id="members-content" ref={membersRef} className="space-y-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="flex items-center space-x-4">
-              <CardTitle>회원 회비 납부 현황</CardTitle>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" onClick={handlePreviousYear}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-lg">{selectedYear}년</span>
-                <Button variant="outline" size="sm" onClick={handleNextYear}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+          <CardHeader className="flex flex-row items-center justify-center pb-2">
+            <CardTitle className="mr-4">회원 회비 납부 현황</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={handlePreviousYear}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-lg">{selectedYear}년</span>
+              <Button variant="outline" size="sm" onClick={handleNextYear}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -470,7 +473,9 @@ const Members = () => {
                           onClick={() => handleUnpaidClick(member.id, userDues?.unpaidAmount || 0)}
                         >
                           <span className="text-red-500 font-medium">
-                            {userDues?.unpaidAmount ? userDues.unpaidAmount.toLocaleString() + '원' : '-'}
+                            {userDues?.unpaidAmount && userDues.unpaidAmount > 0 
+                              ? userDues.unpaidAmount.toLocaleString() + '원' 
+                              : '-'}
                           </span>
                         </td>
                       </tr>
