@@ -1,4 +1,3 @@
-
 export type Role = 'admin' | 'treasurer' | 'member';
 
 export interface User {
@@ -62,6 +61,7 @@ export interface Income {
   description?: string;
   year: number;
   month: number;
+  name: string;
 }
 
 export interface Expense {
@@ -73,6 +73,7 @@ export interface Expense {
   description?: string;
   year: number;
   month: number;
+  name: string;
 }
 
 export interface DuesStatus {

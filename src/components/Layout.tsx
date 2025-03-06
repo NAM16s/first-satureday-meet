@@ -22,9 +22,10 @@ import { Link } from 'react-router-dom';
 
 interface LayoutProps {
   children: React.ReactNode;
+  onProfileClick?: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC<LayoutProps> = ({ children, onProfileClick }) => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -47,7 +48,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {currentUser && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative p-0 overflow-hidden h-8 w-8 rounded-full">
+                  <Button 
+                    variant="ghost" 
+                    className="relative p-0 overflow-hidden h-8 w-8 rounded-full"
+                    onClick={onProfileClick}
+                  >
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="bg-primary-foreground text-primary">
                         {getInitials(currentUser.name)}
