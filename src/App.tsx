@@ -32,24 +32,18 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
 
 // 레이아웃에 사용자 프로필 클릭 기능 추가
 const LayoutWithAuth = ({ children }: { children: React.ReactNode }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, openProfileDialog } = useAuth();
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   
-  const openProfileDialog = () => {
-    setProfileDialogOpen(true);
+  const handleProfileClick = () => {
+    openProfileDialog();
   };
   
   return (
     <>
-      <Layout onProfileClick={openProfileDialog}>
+      <Layout onProfileClick={handleProfileClick}>
         {children}
       </Layout>
-      {currentUser && (
-        <UserProfileDialog
-          open={profileDialogOpen}
-          onOpenChange={setProfileDialogOpen}
-        />
-      )}
     </>
   );
 };

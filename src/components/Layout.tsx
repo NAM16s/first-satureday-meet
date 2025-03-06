@@ -16,7 +16,8 @@ import {
   ArrowDownToLine, 
   ArrowUpToLine, 
   Settings, 
-  LogOut 
+  LogOut,
+  UserCog 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -51,7 +52,6 @@ const Layout: React.FC<LayoutProps> = ({ children, onProfileClick }) => {
                   <Button 
                     variant="ghost" 
                     className="relative p-0 overflow-hidden h-8 w-8 rounded-full"
-                    onClick={onProfileClick}
                   >
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="bg-primary-foreground text-primary">
@@ -72,6 +72,10 @@ const Layout: React.FC<LayoutProps> = ({ children, onProfileClick }) => {
                       <p className="text-xs text-muted-foreground">{currentUser.id}</p>
                     </div>
                   </div>
+                  <DropdownMenuItem onClick={onProfileClick} className="cursor-pointer">
+                    <UserCog className="mr-2 h-4 w-4" />
+                    <span>내 정보 수정</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>로그아웃</span>

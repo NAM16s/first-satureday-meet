@@ -18,16 +18,10 @@ const Members = () => {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  // Member data from database
   const [members, setMembers] = useState<any[]>([]);
-
-  // Dues data from database
   const [duesStatus, setDuesStatus] = useState<DuesData[]>([]);
-
-  // Special events (expenses linked to members)
   const [specialEvents, setSpecialEvents] = useState<EventData[]>([]);
 
-  // State for dues dialog
   const [duesDialogOpen, setDuesDialogOpen] = useState(false);
   const [activeDuesData, setActiveDuesData] = useState<{
     userId: string;
@@ -38,50 +32,40 @@ const Members = () => {
     color?: string;
     unpaidAmount: number;
   } | null>(null);
-  
-  // State for unpaid amount dialog
+
   const [unpaidDialogOpen, setUnpaidDialogOpen] = useState(false);
   const [activeUnpaidData, setActiveUnpaidData] = useState<{
     userId: string;
     memberName: string;
     amount: number;
   } | null>(null);
-  
-  // Load members data and synchronize with user accounts
+
   useEffect(() => {
     const syncMembersWithUserAccounts = async () => {
       try {
         let membersData = await databaseService.getMembers();
         
-        // Always filter out admin accounts regardless of current user role
         const users = JSON.parse(localStorage.getItem('moim_users') || '[]');
         const adminIds = users.filter((u: any) => u.role === 'admin').map((u: any) => u.id);
         membersData = membersData.filter(member => !adminIds.includes(member.id));
         
-        // Get all user IDs from localStorage
         const userIds = users.map((u: any) => u.id);
         
-        // Get all dues data to check for payments
         const allYearsDues = await loadAllYearsDuesData();
         
-        // Filter out members who have deleted user accounts and no dues payments
         const filteredMembers = membersData.filter(member => {
-          // Keep the member if they still have a user account
           if (userIds.includes(member.id)) {
             return true;
           }
           
-          // Check if the member has any dues payments
           const hasDuesPayments = allYearsDues.some(dues => 
             dues.userId === member.id && 
             dues.monthlyDues.some((due: MonthlyDue) => due.status === 'paid' || due.status === 'prepaid')
           );
           
-          // Keep the member if they have dues payments, remove if not
           return hasDuesPayments;
         });
         
-        // Update members list if it changed
         if (JSON.stringify(filteredMembers) !== JSON.stringify(membersData)) {
           await databaseService.saveMembers(filteredMembers);
           toast.success('회원 목록이 업데이트되었습니다.');
@@ -97,10 +81,8 @@ const Members = () => {
     syncMembersWithUserAccounts();
   }, [currentUser]);
 
-  // Helper function to load all years' dues data
   const loadAllYearsDuesData = async () => {
     try {
-      // Get data for current year and past 3 years to check for dues payments
       const currentYear = new Date().getFullYear();
       let allDues = [];
       
@@ -118,16 +100,13 @@ const Members = () => {
     }
   };
 
-  // Load dues and expenses when year changes
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load dues data for the selected year
         const savedDuesStatus = await databaseService.getDues(selectedYear);
         if (savedDuesStatus && savedDuesStatus.length > 0) {
           setDuesStatus(savedDuesStatus);
         } else {
-          // Initialize new dues data for the year
           const newDuesStatus: DuesData[] = members.map(member => ({
             userId: member.id,
             year: selectedYear,
@@ -142,7 +121,6 @@ const Members = () => {
           await databaseService.saveDues(selectedYear, newDuesStatus);
         }
 
-        // Get member-related expenses (경조사비)
         const allExpenses = await databaseService.getExpenses();
         const memberEvents = allExpenses.filter(expense => 
           expense.type === '경조사비' && 
@@ -166,7 +144,6 @@ const Members = () => {
     }
   }, [selectedYear, members]);
 
-  // Save dues data when it changes
   useEffect(() => {
     const saveDuesData = async () => {
       if (duesStatus.length > 0) {
@@ -216,7 +193,6 @@ const Members = () => {
     const { userId, month } = activeDuesData;
     const { status, amount, color, isDefaultDues } = result;
     
-    // Find current dues status
     const userDuesIndex = duesStatus.findIndex(dues => dues.userId === userId);
     if (userDuesIndex === -1) return;
     
@@ -225,35 +201,26 @@ const Members = () => {
     if (monthDueIndex === -1) return;
     
     const previousStatus = userDues.monthlyDues[monthDueIndex].status || 'unpaid';
+    const previousAmount = userDues.monthlyDues[monthDueIndex].amount || duesAmount;
     let newUnpaidAmount = userDues.unpaidAmount || 0;
     
-    // 2. 자동 미납액 변경 로직 구현
-    // 2.1. '미납' 선택 시 미납액 증가
     if (status === 'unpaid' && previousStatus !== 'unpaid') {
-      newUnpaidAmount += amount;
+      newUnpaidAmount += duesAmount;
     } 
-    // 2.2. '납부' 선택 시 미납액 계산
     else if (status === 'paid') {
       if (previousStatus === 'unpaid') {
-        // 미납 -> 납부: 납부금액이 회비보다 적으면 차액 미납액에 추가
-        if (amount < userDues.monthlyDues[monthDueIndex].amount) {
-          newUnpaidAmount += (userDues.monthlyDues[monthDueIndex].amount - amount);
+        if (amount < duesAmount) {
+          newUnpaidAmount += (duesAmount - amount);
         }
       } else if (previousStatus === 'paid') {
-        // 납부 -> 납부(금액 변경): 납부금액 차이에 따라 미납액 조정
-        const prevAmount = userDues.monthlyDues[monthDueIndex].amount || 0;
-        if (amount < prevAmount) {
-          // 이전보다 적게 납부: 차액 미납액에 추가
-          newUnpaidAmount += (prevAmount - amount);
-        } else if (amount > prevAmount) {
-          // 이전보다 많이 납부: 차액만큼 미납액 감소 (음수 방지)
-          newUnpaidAmount = Math.max(0, newUnpaidAmount - (amount - prevAmount));
+        if (amount < previousAmount) {
+          newUnpaidAmount += (previousAmount - amount);
+        } else if (amount > previousAmount) {
+          newUnpaidAmount = Math.max(0, newUnpaidAmount - (amount - previousAmount));
         }
       }
     }
-    // 2.3. '선납' 선택 시 미납액 변경 없음 (별도 처리 필요 없음)
     
-    // Update dues status
     const newDuesStatus = [...duesStatus];
     newDuesStatus[userDuesIndex] = {
       ...userDues,
@@ -272,14 +239,11 @@ const Members = () => {
     
     setDuesStatus(newDuesStatus);
     
-    // 회비 상태 변경 후 미납액 기록 저장
     await databaseService.saveDues(selectedYear, newDuesStatus);
 
-    // Handle income updates if paid
     const member = members.find(m => m.id === userId);
     
     if (status === 'paid' && previousStatus !== 'paid') {
-      // Add new income entry
       const today = new Date();
       const date = new Date(today);
       date.setFullYear(selectedYear, month - 1, today.getDate());
@@ -299,7 +263,6 @@ const Members = () => {
       toast.success(`${month}월 회비가 수입내역에 추가되었습니다.`);
     } 
     else if (status !== 'paid' && previousStatus === 'paid') {
-      // Remove income entry
       const incomes = await databaseService.getIncomes();
       const duesIncome = incomes.find(income => 
         income.type === '회비' && 
@@ -314,7 +277,6 @@ const Members = () => {
       }
     } 
     else if (status === 'paid' && previousStatus === 'paid' && amount !== userDues.monthlyDues[monthDueIndex].amount) {
-      // Update income amount
       const incomes = await databaseService.getIncomes();
       const duesIncome = incomes.find(income => 
         income.type === '회비' && 
@@ -378,7 +340,6 @@ const Members = () => {
     setSpecialEvents(updatedEvents);
   };
 
-  // Calculate monthly dues totals
   const calculateMonthlyTotals = () => {
     const monthlyTotals = Array(12).fill(0);
     
@@ -396,7 +357,6 @@ const Members = () => {
   const monthlyTotals = calculateMonthlyTotals();
   const totalDues = monthlyTotals.reduce((sum, amount) => sum + amount, 0);
 
-  // Get display value for dues status
   const getDuesDisplay = (due: MonthlyDue) => {
     if (!due) return '-';
     
@@ -412,7 +372,6 @@ const Members = () => {
     }
   };
 
-  // Get button color for dues status
   const getDuesButtonStyle = (due: MonthlyDue) => {
     if (!due) return {};
     
@@ -534,7 +493,6 @@ const Members = () => {
           </CardContent>
         </Card>
         
-        {/* 경조사비 지급 내역 - 이제 EventsManager 컴포넌트로 분리 */}
         <EventsManager 
           selectedYear={selectedYear}
           events={specialEvents}
@@ -542,7 +500,6 @@ const Members = () => {
         />
       </div>
 
-      {/* 회비 다이얼로그 */}
       {activeDuesData && (
         <DuesDialog
           open={duesDialogOpen}
@@ -559,7 +516,6 @@ const Members = () => {
         />
       )}
       
-      {/* 미납액 수정 다이얼로그 */}
       {activeUnpaidData && (
         <UnpaidAmountDialog
           open={unpaidDialogOpen}

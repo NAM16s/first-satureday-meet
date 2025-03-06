@@ -30,9 +30,14 @@ const Dashboard = () => {
         const prevYearBalance = await databaseService.calculatePreviousYearBalance(selectedYear);
         setPreviousYearBalance(prevYearBalance);
         
-        // Get carryover amount
-        const savedCarryover = await databaseService.getCarryoverAmount(selectedYear);
-        setCarryoverAmount(savedCarryover);
+        // Get carryover amount - Set to 0 for 2024 specifically as requested
+        if (selectedYear === 2024) {
+          setCarryoverAmount(0);
+          await databaseService.saveCarryoverAmount(2024, 0);
+        } else {
+          const savedCarryover = await databaseService.getCarryoverAmount(selectedYear);
+          setCarryoverAmount(savedCarryover);
+        }
         
         // Calculate current balance
         const balance = await databaseService.calculateCurrentBalance(selectedYear);
@@ -77,10 +82,15 @@ const Dashboard = () => {
     toast.success('이미지가 다운로드되었습니다.');
   };
 
-  // Auto-update carryover from previous year's final balance only when in the current year
+  // Modified to not auto-update carryover for year 2024
   useEffect(() => {
-    // 이전 연도의 최종 잔액이 0이 아니고, 선택된 연도가 현재 연도일 때만 이월금액을 업데이트
-    if (previousYearBalance !== 0 && selectedYear === currentYear) {
+    // Special case for 2024: We don't auto-update the carryover
+    if (selectedYear === 2024) {
+      return;
+    }
+    
+    // For other years: only update when previous year balance is not 0 and it's the current year
+    if (previousYearBalance !== 0 && selectedYear === currentYear && selectedYear !== 2024) {
       const updateCarryover = async () => {
         await databaseService.saveCarryoverAmount(selectedYear, previousYearBalance);
         setCarryoverAmount(previousYearBalance);
@@ -94,7 +104,7 @@ const Dashboard = () => {
     }
   }, [previousYearBalance, selectedYear, currentYear]);
 
-  // Calculate cumulative balance for each month - fix calculation for months with no data
+  // Calculate cumulative balance for each month - improved to handle empty data better
   const calculateCumulativeBalance = (data: any[]) => {
     // Create an array with all months for the selected year
     const allMonths = Array.from({ length: 12 }, (_, i) => i + 1);

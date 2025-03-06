@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,6 +49,7 @@ export const DuesDialog = ({
   const [isPaidDialogOpen, setIsPaidDialogOpen] = useState<boolean>(false);
   const [paidAmount, setPaidAmount] = useState<number>(defaultDues);
   const [saveAsDefault, setSaveAsDefault] = useState<boolean>(false);
+  const [calculatedUnpaidAmount, setCalculatedUnpaidAmount] = useState<number>(unpaidAmount);
 
   // Load member's default dues amount
   useEffect(() => {
@@ -76,8 +77,9 @@ export const DuesDialog = ({
       setConfirmUnpaid(false);
       setIsPaidDialogOpen(false);
       setSaveAsDefault(false);
+      setCalculatedUnpaidAmount(unpaidAmount);
     }
-  }, [open, currentStatus, color]);
+  }, [open, currentStatus, color, unpaidAmount]);
 
   const toggleBackgroundColor = () => {
     setBackgroundColor(prev => 
@@ -88,12 +90,17 @@ export const DuesDialog = ({
 
   const handlePaymentStatusChange = (value: 'unpaid' | 'paid' | 'prepaid') => {
     if (value === 'unpaid') {
+      // Calculate what unpaid amount would be if changed to unpaid
+      const newUnpaidAmount = unpaidAmount + duesAmount;
+      setCalculatedUnpaidAmount(newUnpaidAmount);
       setConfirmUnpaid(true);
     } else if (value === 'paid') {
       setIsPaidDialogOpen(true);
       setPaidAmount(duesAmount);
     } else {
+      // For prepaid, don't change unpaid amount
       setPaymentStatus(value);
+      setCalculatedUnpaidAmount(unpaidAmount);
     }
   };
 
@@ -107,6 +114,16 @@ export const DuesDialog = ({
   };
 
   const handlePaidConfirm = () => {
+    // Calculate what unpaid amount would be if dues are partially paid
+    const difference = duesAmount - paidAmount;
+    let newUnpaidAmount = unpaidAmount;
+    
+    if (difference > 0) {
+      // If paying less than dues amount, add the difference to unpaid
+      newUnpaidAmount += difference;
+    }
+    
+    setCalculatedUnpaidAmount(newUnpaidAmount);
     setPaymentStatus('paid');
     setIsPaidDialogOpen(false);
   };
@@ -211,6 +228,11 @@ export const DuesDialog = ({
               <div className="text-lg font-semibold">
                 {unpaidAmount ? unpaidAmount.toLocaleString() + '원' : '0원'}
               </div>
+              {calculatedUnpaidAmount !== unpaidAmount && (
+                <div className="text-md text-orange-600">
+                  변경 후 미납액: {calculatedUnpaidAmount.toLocaleString()}원
+                </div>
+              )}
             </div>
           </div>
           
@@ -261,6 +283,11 @@ export const DuesDialog = ({
               <p className="text-sm text-muted-foreground">
                 이달의 회비 {duesAmount.toLocaleString()}원보다 적게 납부하면 미납액이 증가합니다.
               </p>
+              {paidAmount < duesAmount && (
+                <div className="text-orange-600">
+                  미납액에 {(duesAmount - paidAmount).toLocaleString()}원이 추가됩니다.
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
