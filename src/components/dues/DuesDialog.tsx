@@ -18,7 +18,7 @@ interface DuesDialogProps {
   currentStatus: string;
   defaultDues: number;
   onSave: (result: {
-    status: 'unpaid' | 'paid' | 'prepaid';
+    status: 'unpaid' | 'paid' | 'prepaid' | '-';
     amount: number;
     color?: string;
     isDefaultDues?: boolean;
@@ -121,7 +121,7 @@ export const DuesDialog = ({
 
   const handlePaidConfirm = () => {
     // Calculate what unpaid amount would be if dues are partially paid
-    // As per requirement 1.2: 미납액 = 미납액+(이달의회비-납부금액)
+    // As per requirement 4.2: 미납액 = 미납액+(이달의회비-납부금액)
     const difference = duesAmount - paidAmount;
     let newUnpaidAmount = unpaidAmount;
     
@@ -154,7 +154,7 @@ export const DuesDialog = ({
     }
 
     onSave({
-      status: paymentStatus === '-' ? 'unpaid' : paymentStatus,
+      status: paymentStatus,
       amount: paymentStatus === 'paid' ? paidAmount : duesAmount,
       color: backgroundColor,
       isDefaultDues: saveAsDefault
@@ -177,28 +177,26 @@ export const DuesDialog = ({
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
-            {/* 이달의 회비 */}
-            <div className="space-y-2">
-              <Label>이달의 회비</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={duesAmount}
-                  onChange={(e) => setDuesAmount(Number(e.target.value))}
-                  className="text-right"
-                  min={0}
-                  step={1000}
-                  readOnly={!saveAsDefault}
-                />
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => setSaveAsDefault(!saveAsDefault)}
-                  className={saveAsDefault ? "bg-blue-100" : ""}
-                >
-                  기본회비로
-                </Button>
-              </div>
+            {/* 이달의 회비 - Rearranged to be in one line */}
+            <div className="flex items-center gap-2">
+              <Label className="w-24">이달의 회비</Label>
+              <Input
+                type="number"
+                value={duesAmount}
+                onChange={(e) => setDuesAmount(Number(e.target.value))}
+                className="text-right flex-grow"
+                min={0}
+                step={1000}
+                readOnly={!saveAsDefault}
+              />
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setSaveAsDefault(!saveAsDefault)}
+                className={saveAsDefault ? "bg-blue-100" : ""}
+              >
+                기본회비로
+              </Button>
             </div>
             
             {/* 회원명 배경색 (UI label removed but functionality kept) */}
@@ -213,11 +211,11 @@ export const DuesDialog = ({
               </div>
             </div>
             
-            {/* 회비 납부 상태 */}
-            <div className="space-y-2">
-              <Label>회비 납부 상태</Label>
+            {/* 회비 납부 상태 - Rearranged to be in one line */}
+            <div className="flex items-center gap-2">
+              <Label className="w-24">회비 납부 상태</Label>
               <Select value={paymentStatus} onValueChange={handlePaymentStatusChange}>
-                <SelectTrigger>
+                <SelectTrigger className="flex-grow">
                   <SelectValue placeholder="납부 상태 선택" />
                 </SelectTrigger>
                 <SelectContent>
@@ -229,18 +227,29 @@ export const DuesDialog = ({
               </Select>
             </div>
             
-            {/* 미납액 정보 표시 */}
-            <div className="space-y-2">
-              <Label>현재 미납액</Label>
-              <div className="text-lg font-semibold">
-                {unpaidAmount > 0 ? unpaidAmount.toLocaleString() + '원' : '0원'}
+            {/* 미납액 정보 표시 - Rearranged to be in one line */}
+            <div className="flex items-center gap-2">
+              <Label className="w-24">현재 미납액</Label>
+              <div className="text-lg font-semibold text-red-600">
+                {unpaidAmount > 0 ? unpaidAmount.toLocaleString() + '원' : '-'}
               </div>
-              {calculatedUnpaidAmount !== unpaidAmount && (
-                <div className="text-md text-red-600">
-                  변경 후 미납액: {calculatedUnpaidAmount > 0 ? calculatedUnpaidAmount.toLocaleString() + '원' : '0원'}
-                </div>
-              )}
             </div>
+            
+            {/* 납부 금액 표시 */}
+            {paymentStatus === 'paid' && (
+              <div className="flex items-center gap-2">
+                <Label className="w-24">납부 금액</Label>
+                <div className="text-lg font-semibold">
+                  {paidAmount.toLocaleString() + '원'}
+                </div>
+              </div>
+            )}
+            
+            {calculatedUnpaidAmount !== unpaidAmount && (
+              <div className="text-md text-red-600">
+                변경 후 미납액: {calculatedUnpaidAmount > 0 ? calculatedUnpaidAmount.toLocaleString() + '원' : '-'}
+              </div>
+            )}
           </div>
           
           <DialogFooter>
@@ -277,31 +286,28 @@ export const DuesDialog = ({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>납부 금액 입력</DialogTitle>
-            <DialogDescription>
-              납부 금액을 입력해주세요.
-            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="paidAmount">납부 금액</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="paidAmount" className="w-24">납부 금액</Label>
               <Input
                 id="paidAmount"
                 type="number"
                 value={paidAmount}
                 onChange={(e) => setPaidAmount(Number(e.target.value))}
-                className="text-right"
+                className="text-right flex-grow"
                 min={0}
                 step={1000}
               />
-              <p className="text-sm text-muted-foreground">
-                이달의 회비 {duesAmount.toLocaleString()}원보다 적게 납부하면 미납액이 증가합니다.
-              </p>
-              {paidAmount < duesAmount && (
-                <div className="text-orange-600">
-                  미납액에 {(duesAmount - paidAmount).toLocaleString()}원이 추가됩니다.
-                </div>
-              )}
             </div>
+            <p className="text-sm text-muted-foreground">
+              이달의 회비 {duesAmount.toLocaleString()}원보다 적게 납부하면 미납액이 증가합니다.
+            </p>
+            {paidAmount < duesAmount && (
+              <div className="text-orange-600">
+                미납액에 {(duesAmount - paidAmount).toLocaleString()}원이 추가됩니다.
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handlePaidCancel}>취소</Button>

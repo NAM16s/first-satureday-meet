@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,6 @@ import {
   UserCog 
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { UserProfileDialog } from '@/components/user/UserProfileDialog';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -30,7 +30,6 @@ const Layout: React.FC<LayoutProps> = ({ children, onProfileClick }) => {
   const { currentUser, logout, openProfileDialog } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
   const handleLogout = () => {
     logout();

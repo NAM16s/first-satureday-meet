@@ -1,74 +1,71 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
-import { MONTH_NAMES } from '@/utils/constants';
+import { Download, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
 import { useAuth } from '@/context/AuthContext';
+import { MONTH_NAMES } from '@/utils/constants';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
-  const { canEdit } = useAuth();
   const dashboardRef = useRef<HTMLDivElement>(null);
+  const { currentUser } = useAuth();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   
-  // State for real data
-  const [carryoverAmount, setCarryoverAmount] = useState(0);
-  const [currentBalance, setCurrentBalance] = useState(0);
-  const [monthlyData, setMonthlyData] = useState<any[]>([]);
-  const [recentIncomes, setRecentIncomes] = useState<any[]>([]);
-  const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
-  const [previousYearBalance, setPreviousYearBalance] = useState(0);
-
-  // Load data when year changes
+  const [incomes, setIncomes] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [duesData, setDuesData] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
+  
+  const [monthlyStats, setMonthlyStats] = useState<any[]>([]);
+  
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Calculate previous year's final balance
-        const prevYearBalance = await databaseService.calculatePreviousYearBalance(selectedYear);
-        setPreviousYearBalance(prevYearBalance);
+        // 모든 회원 데이터 불러오기
+        const membersData = await databaseService.getMembers();
+        setMembers(membersData);
         
-        // Get carryover amount - Set to 0 for 2024 specifically as requested
-        if (selectedYear === 2024) {
-          setCarryoverAmount(0);
-          await databaseService.saveCarryoverAmount(2024, 0);
-        } else {
-          const savedCarryover = await databaseService.getCarryoverAmount(selectedYear);
-          setCarryoverAmount(savedCarryover);
-        }
+        // 연간 수입 불러오기
+        const incomesData = await databaseService.getIncomes();
+        const yearIncomes = incomesData.filter(income => income.year === selectedYear);
+        setIncomes(yearIncomes);
         
-        // Calculate current balance
-        const balance = await databaseService.calculateCurrentBalance(selectedYear);
-        setCurrentBalance(balance);
+        // 연간 지출 불러오기
+        const expensesData = await databaseService.getExpenses();
+        const yearExpenses = expensesData.filter(expense => {
+          const expenseYear = new Date(expense.date).getFullYear();
+          return expenseYear === selectedYear;
+        });
+        setExpenses(yearExpenses);
         
-        // Get monthly data
-        const monthly = await databaseService.getMonthlyFinanceData(selectedYear);
-        setMonthlyData(monthly);
+        // 회비 데이터 불러오기
+        const duesData = await databaseService.getDues(selectedYear);
+        setDuesData(duesData);
         
-        // Get recent incomes
-        const allIncomes = await databaseService.getIncomes();
-        const filteredIncomes = allIncomes
-          .filter(income => income.year === selectedYear)
-          .slice(0, 5); // Get latest 5 incomes for the selected year
-        setRecentIncomes(filteredIncomes);
-        
-        // Get recent expenses
-        const allExpenses = await databaseService.getExpenses();
-        const filteredExpenses = allExpenses
-          .filter(expense => new Date(expense.date).getFullYear() === selectedYear)
-          .slice(0, 5); // Get latest 5 expenses for the selected year
-        setRecentExpenses(filteredExpenses);
       } catch (error) {
-        console.error("Error loading dashboard data:", error);
-        toast.error("데이터를 불러오는 중 오류가 발생했습니다.");
+        console.error('Error loading dashboard data:', error);
+        toast.error('대시보드 데이터를 불러오는 중 오류가 발생했습니다.');
       }
     };
     
     loadData();
   }, [selectedYear]);
-
+  
+  useEffect(() => {
+    calculateMonthlyStats();
+  }, [incomes, expenses]);
+  
+  const handleExportImage = () => {
+    exportAsImage(dashboardRef.current!.id, `대시보드_${selectedYear}`);
+    toast.success('이미지가 다운로드되었습니다.');
+  };
+  
   const handlePreviousYear = () => {
     setSelectedYear(prev => prev - 1);
   };
@@ -76,245 +73,249 @@ const Dashboard = () => {
   const handleNextYear = () => {
     setSelectedYear(prev => prev + 1);
   };
-
-  const handleExportImage = () => {
-    exportAsImage(dashboardRef.current!.id, `대시보드_${selectedYear}`);
-    toast.success('이미지가 다운로드되었습니다.');
-  };
-
-  // Modified to not auto-update carryover for year 2024
-  useEffect(() => {
-    // Special case for 2024: We don't auto-update the carryover
-    if (selectedYear === 2024) {
-      return;
-    }
+  
+  const calculateMonthlyStats = () => {
+    const stats = Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      monthName: MONTH_NAMES[i],
+      income: 0,
+      expense: 0,
+      balance: 0
+    }));
     
-    // For other years: only update when previous year balance is not 0 and it's the current year
-    if (previousYearBalance !== 0 && selectedYear === currentYear && selectedYear !== 2024) {
-      const updateCarryover = async () => {
-        await databaseService.saveCarryoverAmount(selectedYear, previousYearBalance);
-        setCarryoverAmount(previousYearBalance);
-        
-        // Update current balance after saving carryover
-        const balance = await databaseService.calculateCurrentBalance(selectedYear);
-        setCurrentBalance(balance);
-      };
-      
-      updateCarryover();
-    }
-  }, [previousYearBalance, selectedYear, currentYear]);
-
-  // Calculate cumulative balance for each month - improved to handle empty data better
-  const calculateCumulativeBalance = (data: any[]) => {
-    // Create an array with all months for the selected year
-    const allMonths = Array.from({ length: 12 }, (_, i) => i + 1);
-    
-    // Fill in missing months with zero values
-    const completeData = allMonths.map(month => {
-      const existingData = data.find(item => item.month === month);
-      if (existingData) {
-        return existingData;
+    // 월별 수입 계산
+    incomes.forEach(income => {
+      if (income.month) {
+        stats[income.month - 1].income += income.amount;
+      } else {
+        const month = new Date(income.date).getMonth();
+        stats[month].income += income.amount;
       }
-      return {
-        month,
-        income: 0,
-        expense: 0
-      };
     });
     
-    // Sort by month to ensure chronological order
-    completeData.sort((a, b) => a.month - b.month);
-    
-    // Calculate cumulative balance
-    let runningTotal = carryoverAmount;
-    return completeData.map(month => {
-      const monthlyBalance = month.income - month.expense;
-      runningTotal += monthlyBalance;
-      return {
-        ...month,
-        cumulativeBalance: runningTotal,
-        // 수입 또는 지출이 있는지 확인
-        hasActivity: month.income > 0 || month.expense > 0
-      };
+    // 월별 지출 계산
+    expenses.forEach(expense => {
+      const month = new Date(expense.date).getMonth();
+      stats[month].expense += expense.amount;
     });
+    
+    // 월별 잔액 계산
+    stats.forEach(stat => {
+      stat.balance = stat.income - stat.expense;
+    });
+    
+    setMonthlyStats(stats);
   };
-
-  // Process monthly data to include cumulative balance
-  const processedMonthlyData = calculateCumulativeBalance(monthlyData);
-
+  
+  const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
+  const totalExpense = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const balance = totalIncome - totalExpense;
+  
+  const memberCount = members.length;
+  
+  // 미납자 수 계산
+  const unpaidMembersCount = duesData.filter(dues => 
+    dues.unpaidAmount > 0
+  ).length;
+  
+  // 회비 납부율 계산
+  const duesPaymentCount = duesData.reduce((count, dues) => {
+    const paidMonths = dues.monthlyDues.filter((due: any) => 
+      due.status === 'paid' || due.status === 'prepaid'
+    ).length;
+    return count + paidMonths;
+  }, 0);
+  
+  const maxPossiblePayments = memberCount * 12;
+  const duesPaymentRate = maxPossiblePayments > 0 
+    ? Math.round((duesPaymentCount / maxPossiblePayments) * 100) 
+    : 0;
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">대시보드</h2>
+        <div className="flex-grow flex justify-center">
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" onClick={handlePreviousYear}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-lg">{selectedYear}년</span>
+            <Button variant="outline" size="sm" onClick={handleNextYear}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
         <Button variant="outline" onClick={handleExportImage}>
           <Download className="mr-2 h-4 w-4" />
           이미지로 내보내기
         </Button>
       </div>
 
-      <div className="flex justify-center items-center space-x-4 mb-6">
-        <Button variant="outline" size="sm" onClick={handlePreviousYear}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h3 className="text-xl font-semibold">{selectedYear}년</h3>
-        <Button variant="outline" size="sm" onClick={handleNextYear}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
       <div id="dashboard-content" ref={dashboardRef} className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">이전년도 이월 금액</CardTitle>
+              <CardTitle className="text-sm font-medium">총 수입</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{carryoverAmount.toLocaleString()}원</p>
+              <div className="text-2xl font-bold text-green-600">
+                {totalIncome.toLocaleString()}원
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">현재 잔액</CardTitle>
+              <CardTitle className="text-sm font-medium">총 지출</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{currentBalance.toLocaleString()}원</p>
+              <div className="text-2xl font-bold text-red-600">
+                {totalExpense.toLocaleString()}원
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">잔액</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                {balance.toLocaleString()}원
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">회비 납부율</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {duesPaymentRate}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                총 회원 {memberCount}명 중 {unpaidMembersCount}명 미납
+              </p>
             </CardContent>
           </Card>
         </div>
-
-        <Card>
+        
+        <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>월별 수입 및 지출 내역</CardTitle>
+            <CardTitle>월별 수입/지출 차트</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="border p-2 text-left">월</th>
-                    <th className="border p-2 text-right">수입</th>
-                    <th className="border p-2 text-right">지출</th>
-                    <th className="border p-2 text-right">잔액</th>
-                    <th className="border p-2 text-right">총잔액</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {processedMonthlyData.map((data, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="border p-2">{MONTH_NAMES[data.month - 1]}</td>
-                      <td className="border p-2 text-right text-green-600">
-                        {data.income ? data.income.toLocaleString() + '원' : ''}
-                      </td>
-                      <td className="border p-2 text-right text-red-600">
-                        {data.expense ? data.expense.toLocaleString() + '원' : ''}
-                      </td>
-                      <td className="border p-2 text-right">
-                        {data.income || data.expense ? (data.income - data.expense).toLocaleString() + '원' : ''}
-                      </td>
-                      <td className="border p-2 text-right font-medium">
-                        {data.hasActivity ? data.cumulativeBalance.toLocaleString() + '원' : ''}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-muted font-semibold">
-                    <td className="border p-2">합계</td>
-                    <td className="border p-2 text-right text-green-600">
-                      {monthlyData.reduce((sum, data) => sum + data.income, 0).toLocaleString()}원
-                    </td>
-                    <td className="border p-2 text-right text-red-600">
-                      {monthlyData.reduce((sum, data) => sum + data.expense, 0).toLocaleString()}원
-                    </td>
-                    <td className="border p-2 text-right">
-                      {monthlyData.reduce((sum, data) => sum + (data.income - data.expense), 0).toLocaleString()}원
-                    </td>
-                    <td className="border p-2 text-right">
-                      {processedMonthlyData.length > 0 && processedMonthlyData.some(d => d.hasActivity)
-                        ? processedMonthlyData[processedMonthlyData.length - 1].cumulativeBalance.toLocaleString() 
-                        : carryoverAmount.toLocaleString()}원
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={monthlyStats}
+                  margin={{
+                    top: 20,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="monthName" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value: number) => `${value.toLocaleString()}원`}
+                  />
+                  <Legend />
+                  <Bar dataKey="income" name="수입" fill="#22c55e" />
+                  <Bar dataKey="expense" name="지출" fill="#ef4444" />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
-
-        <div className="grid gap-4 md:grid-cols-2">
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>최근 수입 내역</CardTitle>
+              <CardTitle>월별 잔액 현황</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-muted">
-                      <th className="p-2 text-left">날짜</th>
-                      <th className="p-2 text-left">회원명</th>
-                      <th className="p-2 text-left">항목</th>
-                      <th className="p-2 text-right">금액</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentIncomes.length > 0 ? (
-                      recentIncomes.map(income => (
-                        <tr key={income.id} className="border-b">
-                          <td className="p-2">{income.date}</td>
-                          <td className="p-2">{income.name}</td>
-                          <td className="p-2">{income.type}</td>
-                          <td className="p-2 text-right">{income.amount.toLocaleString()}원</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="p-4 text-center text-muted-foreground">
-                          수입 내역이 없습니다.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>월</TableHead>
+                    <TableHead>수입</TableHead>
+                    <TableHead>지출</TableHead>
+                    <TableHead>잔액</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {monthlyStats.map((stat) => (
+                    <TableRow key={stat.month}>
+                      <TableCell>{stat.monthName}</TableCell>
+                      <TableCell>{stat.income.toLocaleString()}원</TableCell>
+                      <TableCell>{stat.expense.toLocaleString()}원</TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          {stat.balance > 0 ? (
+                            <ArrowUp className="mr-1 h-4 w-4 text-green-600" />
+                          ) : stat.balance < 0 ? (
+                            <ArrowDown className="mr-1 h-4 w-4 text-red-600" />
+                          ) : null}
+                          <span className={stat.balance > 0 ? 'text-green-600' : stat.balance < 0 ? 'text-red-600' : ''}>
+                            {stat.balance.toLocaleString()}원
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
           
           <Card>
             <CardHeader>
-              <CardTitle>최근 지출 내역</CardTitle>
+              <CardTitle>최근 거래 내역</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-muted">
-                      <th className="p-2 text-left">날짜</th>
-                      <th className="p-2 text-left">내용</th>
-                      <th className="p-2 text-left">항목</th>
-                      <th className="p-2 text-right">금액</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentExpenses.length > 0 ? (
-                      recentExpenses.map(expense => (
-                        <tr key={expense.id} className="border-b">
-                          <td className="p-2">{expense.date}</td>
-                          <td className="p-2">{expense.name}</td>
-                          <td className="p-2">{expense.type}</td>
-                          <td className="p-2 text-right">{expense.amount.toLocaleString()}원</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="p-4 text-center text-muted-foreground">
-                          지출 내역이 없습니다.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>날짜</TableHead>
+                    <TableHead>분류</TableHead>
+                    <TableHead>내용</TableHead>
+                    <TableHead>금액</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...incomes, ...expenses]
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .slice(0, 5)
+                    .map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.date}</TableCell>
+                        <TableCell>
+                          {items.type ? (
+                            incomes.includes(item) ? '수입' : '지출'
+                          ) : (
+                            <span>
+                              {incomes.includes(item) ? '수입' : '지출'}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>{item.description || item.name}</TableCell>
+                        <TableCell className={incomes.includes(item) ? 'text-green-600' : 'text-red-600'}>
+                          {incomes.includes(item) ? '+' : '-'}
+                          {item.amount.toLocaleString()}원
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  {[...incomes, ...expenses].length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        거래 내역이 없습니다.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </div>

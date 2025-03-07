@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { DuesDialog } from '@/components/dues/DuesDialog';
 import { UnpaidAmountDialog } from '@/components/dues/UnpaidAmountDialog';
 import { EventsManager } from '@/components/events/EventsManager';
+import { MemberContactDialog } from '@/components/MemberContactDialog';
 import { MonthlyDue, DuesData, EventData } from '@/utils/types';
 
 const Members = () => {
@@ -40,6 +42,12 @@ const Members = () => {
     userId: string;
     memberName: string;
     amount: number;
+  } | null>(null);
+  
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [activeContactData, setActiveContactData] = useState<{
+    memberName: string;
+    contact: string;
   } | null>(null);
 
   useEffect(() => {
@@ -114,7 +122,7 @@ const Members = () => {
             year: selectedYear,
             monthlyDues: Array.from({ length: 12 }, (_, i) => ({
               month: i + 1,
-              status: 'unpaid' as 'unpaid',
+              status: '-' as '-',
               amount: defaultDuesAmount
             })),
             unpaidAmount: 0
@@ -175,7 +183,7 @@ const Members = () => {
       userId,
       memberName: member?.name || '',
       month,
-      status: monthDue?.status || 'unpaid',
+      status: monthDue?.status || '-',
       amount: monthDue?.amount || defaultDuesAmount,
       color: monthDue?.color,
       unpaidAmount: userDues?.unpaidAmount || 0
@@ -185,7 +193,7 @@ const Members = () => {
   };
 
   const handleDuesSave = async (result: {
-    status: 'unpaid' | 'paid' | 'prepaid';
+    status: 'unpaid' | 'paid' | 'prepaid' | '-';
     amount: number;
     color?: string;
     isDefaultDues?: boolean;
@@ -202,10 +210,11 @@ const Members = () => {
     const monthDueIndex = userDues.monthlyDues.findIndex(due => due.month === month);
     if (monthDueIndex === -1) return;
     
-    const previousStatus = userDues.monthlyDues[monthDueIndex].status || 'unpaid';
+    const previousStatus = userDues.monthlyDues[monthDueIndex].status || '-';
     const previousAmount = userDues.monthlyDues[monthDueIndex].amount || defaultDuesAmount;
     let newUnpaidAmount = userDues.unpaidAmount || 0;
     
+    // Fix issue 4.1: Correctly add unpaid amount without the additional 10,000 won
     if (status === 'unpaid' && previousStatus !== 'unpaid') {
       newUnpaidAmount += defaultDuesAmount;
     } 
@@ -347,6 +356,22 @@ const Members = () => {
     setSpecialEvents(updatedEvents);
   };
 
+  const handleMemberNameClick = (memberId: string) => {
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    
+    // Find contact info from users
+    const users = JSON.parse(localStorage.getItem('moim_users') || '[]');
+    const user = users.find((u: any) => u.id === memberId);
+    
+    setActiveContactData({
+      memberName: member.name,
+      contact: user?.contact || '연락처 정보가 없습니다.'
+    });
+    
+    setContactDialogOpen(true);
+  };
+
   const calculateMonthlyTotals = () => {
     const monthlyTotals = Array(12).fill(0);
     
@@ -419,17 +444,20 @@ const Members = () => {
 
       <div id="members-content" ref={membersRef} className="space-y-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-center pb-2">
-            <CardTitle className="mr-4">회원 회비 납부 현황</CardTitle>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={handlePreviousYear}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-lg">{selectedYear}년</span>
-              <Button variant="outline" size="sm" onClick={handleNextYear}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-left">회원 회비 납부 현황</CardTitle>
+            <div className="flex-grow flex justify-center">
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={handlePreviousYear}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-lg">{selectedYear}년</span>
+                <Button variant="outline" size="sm" onClick={handleNextYear}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
+            <div className="w-28"></div> {/* Spacer for alignment */}
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -448,7 +476,12 @@ const Members = () => {
                     const userDues = duesStatus.find(dues => dues.userId === member.id);
                     return (
                       <tr key={member.id} className="border-b">
-                        <td className="border p-2 sticky left-0 bg-white z-10">{member.name}</td>
+                        <td 
+                          className="border p-2 sticky left-0 bg-white z-10 cursor-pointer hover:underline"
+                          onClick={() => handleMemberNameClick(member.id)}
+                        >
+                          {member.name}
+                        </td>
                         {MONTH_NAMES.map((_, index) => {
                           const month = index + 1;
                           const monthDue = userDues?.monthlyDues.find(due => due.month === month);
@@ -530,6 +563,15 @@ const Members = () => {
           memberName={activeUnpaidData.memberName}
           currentAmount={activeUnpaidData.amount}
           onSave={handleUnpaidSave}
+        />
+      )}
+      
+      {activeContactData && (
+        <MemberContactDialog
+          open={contactDialogOpen}
+          onOpenChange={setContactDialogOpen}
+          memberName={activeContactData.memberName}
+          contact={activeContactData.contact}
         />
       )}
     </div>
