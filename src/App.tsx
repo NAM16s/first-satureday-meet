@@ -13,8 +13,6 @@ import Expenses from "./pages/Expenses";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout";
-import { UserProfileDialog } from "./components/user/UserProfileDialog";
-import { useState } from "react";
 
 const queryClient = new QueryClient();
 
@@ -32,19 +30,10 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
 
 // 레이아웃에 사용자 프로필 클릭 기능 추가
 const LayoutWithAuth = ({ children }: { children: React.ReactNode }) => {
-  const { currentUser, openProfileDialog } = useAuth();
-  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-  
-  const handleProfileClick = () => {
-    openProfileDialog();
-  };
-  
   return (
-    <>
-      <Layout onProfileClick={handleProfileClick}>
-        {children}
-      </Layout>
-    </>
+    <Layout>
+      {children}
+    </Layout>
   );
 };
 

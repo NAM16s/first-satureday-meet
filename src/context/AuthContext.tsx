@@ -1,10 +1,8 @@
-
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { User } from '../utils/types';
 import { USERS, STORAGE_KEYS } from '../utils/constants';
 import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
-import { UserProfileDialog } from '@/components/user/UserProfileDialog';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -23,7 +21,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(USERS);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [profileDialogOpen, setProfileDialogOpen] = useState<boolean>(false);
   
   // Compute if the current user can edit (admin or treasurer)
   const canEdit = currentUser?.role === 'admin' || currentUser?.role === 'treasurer';
@@ -88,7 +85,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
   
   const openProfileDialog = () => {
-    setProfileDialogOpen(true);
+    // This is now handled in the Layout component
+    // We keep the method here for api consistency
+    console.log("Profile dialog should be opened in the Layout component");
   };
 
   // Add users to members list when they are created
@@ -118,10 +117,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }}
     >
       {children}
-      <UserProfileDialog 
-        open={profileDialogOpen} 
-        onOpenChange={setProfileDialogOpen}
-      />
     </AuthContext.Provider>
   );
 };

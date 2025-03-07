@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,23 +15,16 @@ const ExpensesPage = () => {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   
-  // 지출 내역 데이터
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  
-  // 다이얼로그 상태
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeExpense, setActiveExpense] = useState<Expense | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  
-  // 정렬 상태
   const [sortColumn, setSortColumn] = useState<'date' | 'name' | 'type'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // 연도가 변경될 때 데이터 로드
   useEffect(() => {
     const loadData = async () => {
       try {
-        // 지출 내역 로드
         const expensesData = await databaseService.getExpenses();
         const filteredByYear = expensesData.filter(expense => new Date(expense.date).getFullYear() === selectedYear);
         setExpenses(filteredByYear);
@@ -45,7 +37,6 @@ const ExpensesPage = () => {
     loadData();
   }, [selectedYear]);
 
-  // 정렬 적용
   useEffect(() => {
     const sortedExpenses = [...expenses].sort((a, b) => {
       if (sortColumn === 'date') {
@@ -73,10 +64,8 @@ const ExpensesPage = () => {
 
   const handleColumnSort = (column: 'date' | 'name' | 'type') => {
     if (sortColumn === column) {
-      // 같은 컬럼 클릭 시 정렬 방향 반전
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
-      // 다른 컬럼 클릭 시 해당 컬럼으로 정렬
       setSortColumn(column);
       setSortDirection('asc');
     }
@@ -124,7 +113,6 @@ const ExpensesPage = () => {
         toast.success('지출이 수정되었습니다.');
       }
       
-      // 데이터 다시 로드
       const updatedExpenses = await databaseService.getExpenses();
       const filteredByYear = updatedExpenses.filter(e => new Date(e.date).getFullYear() === selectedYear);
       setExpenses(filteredByYear);
@@ -139,7 +127,6 @@ const ExpensesPage = () => {
       await databaseService.deleteExpense(id);
       toast.success('지출이 삭제되었습니다.');
       
-      // 데이터 다시 로드
       const updatedExpenses = await databaseService.getExpenses();
       const filteredByYear = updatedExpenses.filter(e => new Date(e.date).getFullYear() === selectedYear);
       setExpenses(filteredByYear);
@@ -165,27 +152,19 @@ const ExpensesPage = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold">지출 내역</h2>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportImage}>
-            <Download className="mr-2 h-4 w-4" />
-            이미지로 내보내기
+        <h2 className="text-3xl font-bold">지출내역</h2>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={handlePreviousYear}>
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          {canEdit && (
-            <Button onClick={handleAddNew}>
-              새 지출 등록
-            </Button>
-          )}
+          <span className="text-lg font-medium">{selectedYear}년</span>
+          <Button variant="outline" size="sm" onClick={handleNextYear}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-      </div>
-
-      <div className="flex justify-center items-center space-x-4 mb-6">
-        <Button variant="outline" size="sm" onClick={handlePreviousYear}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h3 className="text-xl font-semibold">{selectedYear}년</h3>
-        <Button variant="outline" size="sm" onClick={handleNextYear}>
-          <ChevronRight className="h-4 w-4" />
+        <Button variant="outline" onClick={handleExportImage}>
+          <Download className="mr-2 h-4 w-4" />
+          이미지로 내보내기
         </Button>
       </div>
 

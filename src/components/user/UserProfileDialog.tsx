@@ -79,8 +79,6 @@ export const UserProfileDialog = ({
     onOpenChange(false);
   };
   
-  if (!currentUser) return null;
-  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -95,7 +93,7 @@ export const UserProfileDialog = ({
             <Label htmlFor="user-id">아이디</Label>
             <Input
               id="user-id"
-              value={currentUser.id}
+              value={currentUser?.id || ''}
               disabled
             />
           </div>

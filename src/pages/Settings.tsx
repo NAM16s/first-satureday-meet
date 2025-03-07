@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +26,7 @@ const Settings = () => {
     name: '',
     password: '',
     role: 'member' as Role,
+    contact: '',
   });
 
   const [backups, setBackups] = useState<any[]>([]);
@@ -55,7 +55,7 @@ const Settings = () => {
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newUser.id || !newUser.name || !newUser.password || !newUser.role) {
+    if (!newUser.id || !newUser.name || !newUser.password || !newUser.role || !newUser.contact) {
       toast.error('모든 필드를 입력해주세요.');
       return;
     }
@@ -85,6 +85,7 @@ const Settings = () => {
       name: '',
       password: '',
       role: 'member',
+      contact: '',
     });
     
     toast.success('새 사용자가 추가되었습니다.');
@@ -224,6 +225,15 @@ const Settings = () => {
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="contact">연락처</Label>
+                      <Input
+                        id="contact"
+                        value={newUser.contact}
+                        onChange={(e) => handleInputChange('contact', e.target.value)}
+                        placeholder="010-0000-0000"
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="role">역할</Label>
                       <Select
                         value={newUser.role}
@@ -257,6 +267,7 @@ const Settings = () => {
                   <tr className="bg-muted">
                     <th className="p-2 text-left">아이디</th>
                     <th className="p-2 text-left">이름</th>
+                    <th className="p-2 text-left">연락처</th>
                     <th className="p-2 text-left">역할</th>
                     <th className="p-2 text-center">작업</th>
                   </tr>
@@ -266,6 +277,7 @@ const Settings = () => {
                     <tr key={user.id} className="border-b">
                       <td className="p-2">{user.id}</td>
                       <td className="p-2">{user.name}</td>
+                      <td className="p-2">{user.contact || '-'}</td>
                       <td className="p-2">
                         {user.role === 'admin' ? '관리자' : user.role === 'treasurer' ? '회계' : '회원'}
                       </td>
@@ -341,6 +353,15 @@ const Settings = () => {
                     value={editingUser.password}
                     onChange={(e) => handleEditInputChange('password', e.target.value)}
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contact">연락처</Label>
+                  <Input
+                    id="edit-contact"
+                    value={editingUser.contact || ''}
+                    onChange={(e) => handleEditInputChange('contact', e.target.value)}
+                    placeholder="010-0000-0000"
                   />
                 </div>
                 <div className="space-y-2">

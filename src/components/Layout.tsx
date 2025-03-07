@@ -141,10 +141,12 @@ const Layout: React.FC<LayoutProps> = ({ children, onProfileClick }) => {
       </footer>
 
       {/* User Profile Dialog */}
-      <UserProfileDialog 
-        open={profileDialogOpen} 
-        onOpenChange={setProfileDialogOpen} 
-      />
+      {!onProfileClick && (
+        <UserProfileDialog 
+          open={profileDialogOpen} 
+          onOpenChange={setProfileDialogOpen} 
+        />
+      )}
     </div>
   );
 };

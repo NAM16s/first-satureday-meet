@@ -41,8 +41,8 @@ export const DuesDialog = ({
   unpaidAmount
 }: DuesDialogProps) => {
   const [duesAmount, setDuesAmount] = useState<number>(defaultDues);
-  const [paymentStatus, setPaymentStatus] = useState<'unpaid' | 'paid' | 'prepaid'>(
-    currentStatus as 'unpaid' | 'paid' | 'prepaid' || 'unpaid'
+  const [paymentStatus, setPaymentStatus] = useState<'unpaid' | 'paid' | 'prepaid' | '-'>(
+    currentStatus as 'unpaid' | 'paid' | 'prepaid' | '-' || '-'
   );
   const [backgroundColor, setBackgroundColor] = useState<string>(color || 'bg-white');
   const [confirmUnpaid, setConfirmUnpaid] = useState<boolean>(false);
@@ -72,7 +72,7 @@ export const DuesDialog = ({
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
-      setPaymentStatus(currentStatus as 'unpaid' | 'paid' | 'prepaid' || 'unpaid');
+      setPaymentStatus(currentStatus as 'unpaid' | 'paid' | 'prepaid' | '-' || '-');
       setBackgroundColor(color || 'bg-white');
       setConfirmUnpaid(false);
       setIsPaidDialogOpen(false);
@@ -90,7 +90,7 @@ export const DuesDialog = ({
     );
   };
 
-  const handlePaymentStatusChange = (value: 'unpaid' | 'paid' | 'prepaid') => {
+  const handlePaymentStatusChange = (value: 'unpaid' | 'paid' | 'prepaid' | '-') => {
     if (value === 'unpaid') {
       // Calculate what unpaid amount would be if changed to unpaid
       const newUnpaidAmount = unpaidAmount + duesAmount;
@@ -99,8 +99,12 @@ export const DuesDialog = ({
     } else if (value === 'paid') {
       setIsPaidDialogOpen(true);
       setPaidAmount(duesAmount);
-    } else {
+    } else if (value === 'prepaid') {
       // For prepaid, don't change unpaid amount as per requirement 1.3
+      setPaymentStatus(value);
+      setCalculatedUnpaidAmount(unpaidAmount);
+    } else {
+      // For "-", set status to "-"
       setPaymentStatus(value);
       setCalculatedUnpaidAmount(unpaidAmount);
     }
@@ -150,7 +154,7 @@ export const DuesDialog = ({
     }
 
     onSave({
-      status: paymentStatus,
+      status: paymentStatus === '-' ? 'unpaid' : paymentStatus,
       amount: paymentStatus === 'paid' ? paidAmount : duesAmount,
       color: backgroundColor,
       isDefaultDues: saveAsDefault
@@ -184,6 +188,7 @@ export const DuesDialog = ({
                   className="text-right"
                   min={0}
                   step={1000}
+                  readOnly={!saveAsDefault}
                 />
                 <Button
                   variant="outline"
@@ -194,14 +199,10 @@ export const DuesDialog = ({
                   기본회비로
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {saveAsDefault ? '이 금액을 기본 회비로 저장합니다.' : '일시적으로 이번 달만 적용됩니다.'}
-              </p>
             </div>
             
-            {/* 회원명 배경색 */}
+            {/* 회원명 배경색 (UI label removed but functionality kept) */}
             <div className="space-y-2">
-              <Label>회원명 배경색</Label>
               <div className="flex items-center gap-2">
                 <div 
                   className={`w-full h-10 border rounded-md flex items-center justify-center cursor-pointer ${backgroundColor}`}
@@ -210,7 +211,6 @@ export const DuesDialog = ({
                   {memberName}
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">클릭하여 배경색을 변경할 수 있습니다.</p>
             </div>
             
             {/* 회비 납부 상태 */}
@@ -221,6 +221,7 @@ export const DuesDialog = ({
                   <SelectValue placeholder="납부 상태 선택" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="-">-</SelectItem>
                   <SelectItem value="unpaid">미납</SelectItem>
                   <SelectItem value="paid">납부</SelectItem>
                   <SelectItem value="prepaid">선납</SelectItem>
@@ -235,7 +236,7 @@ export const DuesDialog = ({
                 {unpaidAmount > 0 ? unpaidAmount.toLocaleString() + '원' : '0원'}
               </div>
               {calculatedUnpaidAmount !== unpaidAmount && (
-                <div className="text-md text-orange-600">
+                <div className="text-md text-red-600">
                   변경 후 미납액: {calculatedUnpaidAmount > 0 ? calculatedUnpaidAmount.toLocaleString() + '원' : '0원'}
                 </div>
               )}
