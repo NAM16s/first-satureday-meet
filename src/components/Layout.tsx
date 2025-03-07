@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -28,7 +27,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, onProfileClick }) => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, openProfileDialog } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -46,7 +45,8 @@ const Layout: React.FC<LayoutProps> = ({ children, onProfileClick }) => {
     if (onProfileClick) {
       onProfileClick();
     } else {
-      setProfileDialogOpen(true);
+      // Use the openProfileDialog from context instead of local state
+      openProfileDialog();
     }
   };
 
@@ -139,14 +139,6 @@ const Layout: React.FC<LayoutProps> = ({ children, onProfileClick }) => {
           © 2023 모임회원 및 회비 관리 시스템
         </div>
       </footer>
-
-      {/* User Profile Dialog */}
-      {!onProfileClick && (
-        <UserProfileDialog 
-          open={profileDialogOpen} 
-          onOpenChange={setProfileDialogOpen} 
-        />
-      )}
     </div>
   );
 };
