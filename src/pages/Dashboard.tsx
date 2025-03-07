@@ -1,14 +1,19 @@
+
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Download } from 'lucide-react';
 import { exportAsImage } from '@/utils/exportUtils';
 import { toast } from 'sonner';
 import { databaseService } from '@/services/databaseService';
 import { useAuth } from '@/context/AuthContext';
 import { MONTH_NAMES } from '@/utils/constants';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+// Import our new components
+import { StatsCard } from '@/components/dashboard/StatsCard';
+import { MonthlyBarChart } from '@/components/dashboard/MonthlyBarChart';
+import { MonthlyBalanceTable } from '@/components/dashboard/MonthlyBalanceTable';
+import { RecentTransactionsTable } from '@/components/dashboard/RecentTransactionsTable';
+import { YearSelector } from '@/components/dashboard/YearSelector';
 
 const Dashboard = () => {
   const dashboardRef = useRef<HTMLDivElement>(null);
@@ -106,6 +111,7 @@ const Dashboard = () => {
     setMonthlyStats(stats);
   };
   
+  // Calculate summary stats
   const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
   const totalExpense = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const balance = totalIncome - totalExpense;
@@ -135,15 +141,11 @@ const Dashboard = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">대시보드</h2>
         <div className="flex-grow flex justify-center">
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" onClick={handlePreviousYear}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-lg">{selectedYear}년</span>
-            <Button variant="outline" size="sm" onClick={handleNextYear}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <YearSelector 
+            selectedYear={selectedYear} 
+            onPreviousYear={handlePreviousYear} 
+            onNextYear={handleNextYear}
+          />
         </div>
         <Button variant="outline" onClick={handleExportImage}>
           <Download className="mr-2 h-4 w-4" />
@@ -153,170 +155,33 @@ const Dashboard = () => {
 
       <div id="dashboard-content" ref={dashboardRef} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">총 수입</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {totalIncome.toLocaleString()}원
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">총 지출</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {totalExpense.toLocaleString()}원
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">잔액</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                {balance.toLocaleString()}원
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">회비 납부율</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {duesPaymentRate}%
-              </div>
-              <p className="text-xs text-muted-foreground">
-                총 회원 {memberCount}명 중 {unpaidMembersCount}명 미납
-              </p>
-            </CardContent>
-          </Card>
+          <StatsCard 
+            title="총 수입" 
+            value={`${totalIncome.toLocaleString()}원`} 
+            valueClassName="text-green-600"
+          />
+          <StatsCard 
+            title="총 지출" 
+            value={`${totalExpense.toLocaleString()}원`} 
+            valueClassName="text-red-600"
+          />
+          <StatsCard 
+            title="잔액" 
+            value={`${balance.toLocaleString()}원`} 
+            valueClassName={balance >= 0 ? 'text-blue-600' : 'text-red-600'}
+          />
+          <StatsCard 
+            title="회비 납부율" 
+            value={`${duesPaymentRate}%`} 
+            subValue={`총 회원 ${memberCount}명 중 ${unpaidMembersCount}명 미납`}
+          />
         </div>
         
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>월별 수입/지출 차트</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={monthlyStats}
-                  margin={{
-                    top: 20,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="monthName" />
-                  <YAxis />
-                  <Tooltip 
-                    formatter={(value: number) => `${value.toLocaleString()}원`}
-                  />
-                  <Legend />
-                  <Bar dataKey="income" name="수입" fill="#22c55e" />
-                  <Bar dataKey="expense" name="지출" fill="#ef4444" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <MonthlyBarChart data={monthlyStats} />
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>월별 잔액 현황</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>월</TableHead>
-                    <TableHead>수입</TableHead>
-                    <TableHead>지출</TableHead>
-                    <TableHead>잔액</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {monthlyStats.map((stat) => (
-                    <TableRow key={stat.month}>
-                      <TableCell>{stat.monthName}</TableCell>
-                      <TableCell>{stat.income.toLocaleString()}원</TableCell>
-                      <TableCell>{stat.expense.toLocaleString()}원</TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          {stat.balance > 0 ? (
-                            <ArrowUp className="mr-1 h-4 w-4 text-green-600" />
-                          ) : stat.balance < 0 ? (
-                            <ArrowDown className="mr-1 h-4 w-4 text-red-600" />
-                          ) : null}
-                          <span className={stat.balance > 0 ? 'text-green-600' : stat.balance < 0 ? 'text-red-600' : ''}>
-                            {stat.balance.toLocaleString()}원
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>최근 거래 내역</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>날짜</TableHead>
-                    <TableHead>분류</TableHead>
-                    <TableHead>내용</TableHead>
-                    <TableHead>금액</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {[...incomes, ...expenses]
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .slice(0, 5)
-                    .map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.date}</TableCell>
-                        <TableCell>
-                          {item.type ? (
-                            incomes.includes(item) ? '수입' : '지출'
-                          ) : (
-                            <span>
-                              {incomes.includes(item) ? '수입' : '지출'}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>{item.description || item.name}</TableCell>
-                        <TableCell className={incomes.includes(item) ? 'text-green-600' : 'text-red-600'}>
-                          {incomes.includes(item) ? '+' : '-'}
-                          {item.amount.toLocaleString()}원
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  {[...incomes, ...expenses].length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        거래 내역이 없습니다.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <MonthlyBalanceTable data={monthlyStats} />
+          <RecentTransactionsTable incomes={incomes} expenses={expenses} />
         </div>
       </div>
     </div>
