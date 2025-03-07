@@ -17,6 +17,7 @@ export type Database = {
           income_id: string | null
           is_paid: boolean | null
           month: number
+          unpaid_amount: number | null
           user_id: string | null
           year: number
         }
@@ -27,6 +28,7 @@ export type Database = {
           income_id?: string | null
           is_paid?: boolean | null
           month: number
+          unpaid_amount?: number | null
           user_id?: string | null
           year: number
         }
@@ -37,6 +39,7 @@ export type Database = {
           income_id?: string | null
           is_paid?: boolean | null
           month?: number
+          unpaid_amount?: number | null
           user_id?: string | null
           year?: number
         }

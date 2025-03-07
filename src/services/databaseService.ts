@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from "@/integrations/supabase/client";
 import { MemberSettings, DuesData, MonthlyDue, EventHistory, EventData } from '@/utils/types';
@@ -169,7 +168,7 @@ const convertDbDuesToAppDues = (dbDues: any[]): DuesData[] => {
         userId: due.user_id,
         year: due.year,
         monthlyDues: [],
-        unpaidAmount: 0
+        unpaidAmount: due.unpaid_amount || 0
       });
     }
     

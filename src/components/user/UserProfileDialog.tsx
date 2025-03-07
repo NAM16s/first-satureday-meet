@@ -7,16 +7,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 
-interface UserProfileDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export const UserProfileDialog = ({
-  open,
-  onOpenChange
-}: UserProfileDialogProps) => {
-  const { currentUser, setUsers, users } = useAuth();
+export const UserProfileDialog = () => {
+  const { currentUser, setUsers, users, profileDialogOpen, setProfileDialogOpen } = useAuth();
   
   const [name, setName] = useState<string>('');
   const [contact, setContact] = useState<string>('');
@@ -26,14 +18,14 @@ export const UserProfileDialog = ({
   
   // Load current user data
   useEffect(() => {
-    if (currentUser && open) {
+    if (currentUser && profileDialogOpen) {
       setName(currentUser.name || '');
       setContact(currentUser.contact || '');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     }
-  }, [currentUser, open]);
+  }, [currentUser, profileDialogOpen]);
   
   const handleSave = () => {
     if (!currentUser) return;
@@ -76,11 +68,11 @@ export const UserProfileDialog = ({
     
     setUsers(updatedUsers);
     toast.success('사용자 정보가 업데이트되었습니다.');
-    onOpenChange(false);
+    setProfileDialogOpen(false);
   };
   
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>내 정보 수정</DialogTitle>
@@ -147,7 +139,7 @@ export const UserProfileDialog = ({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>취소</Button>
+          <Button variant="outline" onClick={() => setProfileDialogOpen(false)}>취소</Button>
           <Button onClick={handleSave}>저장</Button>
         </DialogFooter>
       </DialogContent>

@@ -32,7 +32,6 @@ const Settings = () => {
   const [backups, setBackups] = useState<any[]>([]);
 
   useEffect(() => {
-    // Load backups from localStorage
     const loadedBackups = databaseService.getBackups();
     setBackups(loadedBackups);
   }, []);
@@ -60,7 +59,6 @@ const Settings = () => {
       return;
     }
 
-    // 중복 ID 확인
     if (users.some(user => user.id === newUser.id)) {
       toast.error('이미 존재하는 아이디입니다.');
       return;
@@ -73,10 +71,8 @@ const Settings = () => {
       password: newUser.password.trim(),
     };
 
-    // Add to users list
     setUsers(prev => [...prev, userToAdd]);
     
-    // Sync to members list
     await databaseService.syncUserToMembers(userToAdd);
     
     setNewUserOpen(false);
@@ -98,7 +94,6 @@ const Settings = () => {
       prev.map(user => user.id === editingUser.id ? editingUser : user)
     );
     
-    // Update in members list if name changed
     await databaseService.syncUserToMembers(editingUser);
     
     setEditUserOpen(false);
@@ -136,7 +131,6 @@ const Settings = () => {
       const success = await databaseService.restoreBackup(id);
       if (success) {
         toast.success('백업이 복원되었습니다.');
-        // Reload the page to reflect changes
         window.location.reload();
       } else {
         toast.error('백업 복원 중 오류가 발생했습니다.');
@@ -320,7 +314,6 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* 사용자 편집 다이얼로그 */}
         <Dialog open={editUserOpen} onOpenChange={setEditUserOpen}>
           <DialogContent>
             <DialogHeader>

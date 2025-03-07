@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { UserProfileDialog } from "./components/user/UserProfileDialog";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
@@ -37,17 +38,22 @@ const LayoutWithAuth = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-const AppRoutes = () => (
-  <Routes>
-    <Route path="/" element={<AuthRoute><Login /></AuthRoute>} />
-    <Route path="/dashboard" element={<ProtectedRoute><LayoutWithAuth><Dashboard /></LayoutWithAuth></ProtectedRoute>} />
-    <Route path="/members" element={<ProtectedRoute><LayoutWithAuth><Members /></LayoutWithAuth></ProtectedRoute>} />
-    <Route path="/income" element={<ProtectedRoute><LayoutWithAuth><Income /></LayoutWithAuth></ProtectedRoute>} />
-    <Route path="/expenses" element={<ProtectedRoute><LayoutWithAuth><Expenses /></LayoutWithAuth></ProtectedRoute>} />
-    <Route path="/settings" element={<ProtectedRoute><LayoutWithAuth><Settings /></LayoutWithAuth></ProtectedRoute>} />
-    <Route path="*" element={<NotFound />} />
-  </Routes>
-);
+const AppWithProviders = () => {
+  return (
+    <>
+      <UserProfileDialog />
+      <Routes>
+        <Route path="/" element={<AuthRoute><Login /></AuthRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><LayoutWithAuth><Dashboard /></LayoutWithAuth></ProtectedRoute>} />
+        <Route path="/members" element={<ProtectedRoute><LayoutWithAuth><Members /></LayoutWithAuth></ProtectedRoute>} />
+        <Route path="/income" element={<ProtectedRoute><LayoutWithAuth><Income /></LayoutWithAuth></ProtectedRoute>} />
+        <Route path="/expenses" element={<ProtectedRoute><LayoutWithAuth><Expenses /></LayoutWithAuth></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><LayoutWithAuth><Settings /></LayoutWithAuth></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -56,7 +62,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AppRoutes />
+          <AppWithProviders />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
