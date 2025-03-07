@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -153,6 +152,7 @@ const Expenses = () => {
                 onDelete={handleDeleteExpense}
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
+                isCreating={!editingExpense}
               />
             </Dialog>
           </CardHeader>

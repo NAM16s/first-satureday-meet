@@ -24,7 +24,7 @@ export interface DuesData {
 export interface MonthlyDue {
   month: number;
   paid?: boolean;
-  status?: 'unpaid' | 'paid' | 'prepaid';
+  status?: 'unpaid' | 'paid' | 'prepaid' | '-';
   amount?: number;
   color?: string;
 }

@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -124,7 +123,7 @@ const Members = () => {
               month: i + 1,
               status: '-' as '-',
               amount: defaultDuesAmount
-            })),
+            })) as MonthlyDue[],
             unpaidAmount: 0
           }));
           setDuesStatus(newDuesStatus);
@@ -152,7 +151,7 @@ const Members = () => {
     if (members.length > 0) {
       loadData();
     }
-  }, [selectedYear, members]);
+  }, [selectedYear, members, defaultDuesAmount]);
 
   useEffect(() => {
     const saveDuesData = async () => {
@@ -214,7 +213,6 @@ const Members = () => {
     const previousAmount = userDues.monthlyDues[monthDueIndex].amount || defaultDuesAmount;
     let newUnpaidAmount = userDues.unpaidAmount || 0;
     
-    // Fix issue 4.1: Correctly add unpaid amount without the additional 10,000 won
     if (status === 'unpaid' && previousStatus !== 'unpaid') {
       newUnpaidAmount += defaultDuesAmount;
     } 
@@ -240,7 +238,7 @@ const Members = () => {
         ...userDues.monthlyDues.slice(0, monthDueIndex),
         {
           ...userDues.monthlyDues[monthDueIndex],
-          status,
+          status: status as MonthlyDue['status'],
           amount,
           color
         },
@@ -360,7 +358,6 @@ const Members = () => {
     const member = members.find(m => m.id === memberId);
     if (!member) return;
     
-    // Find contact info from users
     const users = JSON.parse(localStorage.getItem('moim_users') || '[]');
     const user = users.find((u: any) => u.id === memberId);
     

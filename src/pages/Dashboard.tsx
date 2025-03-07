@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -292,7 +291,7 @@ const Dashboard = () => {
                       <TableRow key={item.id}>
                         <TableCell>{item.date}</TableCell>
                         <TableCell>
-                          {items.type ? (
+                          {item.type ? (
                             incomes.includes(item) ? '수입' : '지출'
                           ) : (
                             <span>

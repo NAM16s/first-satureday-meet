@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ const Income = () => {
   const [incomes, setIncomes] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState<any | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
   
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -26,6 +26,9 @@ const Income = () => {
   useEffect(() => {
     const loadIncomes = async () => {
       try {
+        const membersData = await databaseService.getMembers();
+        setMembers(membersData);
+        
         const allIncomes = await databaseService.getIncomes();
         const filteredIncomes = allIncomes.filter(income => income.year === selectedYear);
         setIncomes(filteredIncomes);
@@ -166,6 +169,8 @@ const Income = () => {
                 onDelete={handleDeleteIncome}
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
+                isCreating={!editingIncome}
+                members={members}
               />
             </Dialog>
           </CardHeader>
